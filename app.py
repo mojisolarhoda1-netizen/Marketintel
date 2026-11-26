@@ -9,6 +9,7 @@ import json
 import os
 import re
 import sys
+from html import escape as html_escape
 import secrets
 import threading
 from datetime import datetime, timedelta, timezone
@@ -1181,8 +1182,48 @@ def ago(ts):
     return f"{int(s//86400)} days ago"
 
 
+def _setup_problem_app(err: Exception) -> Flask:
+    """If the app can't start online, show what to fix instead of a blank 'function failed' page."""
+    fallback = Flask(__name__)
+    missing = [k for k in ("APP_PASSWORD", "TURSO_DATABASE_URL", "TURSO_AUTH_TOKEN") if not env(k)]
+    url = env("TURSO_DATABASE_URL")
+    hints = []
+    if missing:
+        hints.append("These settings are missing in Vercel → Settings → Environment Variables: " + ", ".join(missing) + ".")
+    if url and not url.startswith(("libsql://", "https://")):
+        hints.append("TURSO_DATABASE_URL should start with libsql:// (copy it again from Turso, with no spaces).")
+    if "token" in str(err).lower() or "401" in str(err):
+        hints.append("Turso refused the token: create a new token in Turso and paste it into TURSO_AUTH_TOKEN.")
+    if not hints:
+        hints.append("Unexpected start-up error. Send Claude the message below.")
+    detail = f"{err.__class__.__name__}: {err}"
+    for secret in (env("TURSO_AUTH_TOKEN"), env("APP_PASSWORD"), env("SECRET_KEY"), env("CRON_SECRET")):
+        if secret:
+            detail = detail.replace(secret, "•••")
+
+    @fallback.route("/", defaults={"path": ""})
+    @fallback.route("/<path:path>")
+    def problem(path):
+        items = "".join(f"<li>{html_escape(h)}</li>" for h in hints)
+        return (f"<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'>"
+                f"<title>Market Intel — setup needed</title><body style='font:16px/1.5 system-ui;max-width:640px;margin:40px auto;padding:0 16px'>"
+                f"<h1>Almost there — one setting needs fixing</h1><ul>{items}</ul>"
+                f"<p>After changing a setting: Vercel → Deployments → ⋯ on the latest → <b>Redeploy</b>.</p>"
+                f"<p style='color:#666;font-size:13px'>Technical detail: {html_escape(detail[:400])}</p></body>", 503)
+    return fallback
+
+
+def _make_online_app() -> Flask:
+    try:
+        if not env("TURSO_DATABASE_URL"):
+            raise RuntimeError("TURSO_DATABASE_URL is not set, so there is nowhere to save data online")
+        return create_app()
+    except Exception as e:  # never crash on start-up online
+        return _setup_problem_app(e)
+
+
 # Vercel imports `app` from this file; locally it is created in __main__ below.
-app = create_app() if on_vercel() else None
+app = _make_online_app() if on_vercel() else None
 
 
 if __name__ == "__main__":

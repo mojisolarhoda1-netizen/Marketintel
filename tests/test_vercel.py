@@ -89,3 +89,25 @@ def test_missing_password_blocks_online_app(online, monkeypatch):
     monkeypatch.delenv("APP_PASSWORD")
     r = a.test_client().get("/")
     assert r.status_code == 503 and b"APP_PASSWORD" in r.data
+
+
+def test_setup_problems_show_a_helpful_page(monkeypatch):
+    monkeypatch.setenv("VERCEL", "1")
+    monkeypatch.delenv("TURSO_DATABASE_URL", raising=False)
+    monkeypatch.setenv("APP_PASSWORD", "x" * 12)
+    a = appmod._make_online_app()
+    r = a.test_client().get("/brands")
+    assert r.status_code == 503 and b"TURSO_DATABASE_URL" in r.data and b"Redeploy" in r.data
+
+
+def test_bad_turso_token_is_explained_without_leaking_it(monkeypatch):
+    monkeypatch.setenv("VERCEL", "1")
+    monkeypatch.setenv("APP_PASSWORD", "x" * 12)
+    monkeypatch.setenv("TURSO_DATABASE_URL", "libsql://mi.turso.io")
+    monkeypatch.setenv("TURSO_AUTH_TOKEN", "SUPER-SECRET-TOKEN")
+    from intel.turso import TursoError
+    def boom(*a, **k):
+        raise TursoError("database refused the token (check TURSO_AUTH_TOKEN) SUPER-SECRET-TOKEN")
+    monkeypatch.setattr(appmod, "create_app", boom)
+    r = appmod._make_online_app().test_client().get("/")
+    assert b"new token" in r.data and b"SUPER-SECRET-TOKEN" not in r.data
