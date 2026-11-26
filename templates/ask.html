@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}Ask your data{% endblock %}
+{% block crumbs %}<h1>Ask your data</h1>{% endblock %}
+{% block content %}
+<section class="card">
+<form method="post" class="form">{{ csrf() }}
+<label class="small muted">About</label>
+<select name="scope" style="width:100%"><option value="all">All real brands and creators</option>
+{% for w in lists %}<option value="w:{{ w.id }}" {{ 'selected' if r.scope=='w:'~w.id }}>Watchlist: {{ w.name }}</option>{% endfor %}
+{% for e in ents %}<option value="e:{{ e.id }}" {{ 'selected' if r.scope=='e:'~e.id }}>{{ e.name }} ({{ e.kind }})</option>{% endfor %}</select>
+<label class="small muted">Question</label>
+<textarea name="question" rows="3" placeholder="e.g. Which competitor got the most negative coverage this month, and why?">{{ r.question or '' }}</textarea>
+<div class="form row wrap"><select name="engine">{% for g in engines if g.id in ('claude_handoff','ollama') %}<option value="{{ g.id }}" {{ 'disabled' if not g.available }}>{{ g.name }}{{ '' if g.available else ' — ' ~ g.note }}</option>{% endfor %}</select>
+<button class="btn primary">Prepare answer</button></div>
+</form>
+<p class="muted small">Uses the last 30 days of stored facts for up to 12 brands/creators. The AI is told to answer only from those facts.</p>
+</section>
+{% if r.answer %}<section class="card"><h2>Answer (local AI)</h2><div class="answer">{{ r.answer }}</div><p class="muted small">Check numbers against the brand pages; local models can make mistakes.</p></section>{% endif %}
+{% if r.error %}<div class="flash error">{{ r.error }}</div>{% endif %}
+{% if r.pack %}<section class="card"><h2>Claude Pro hand-off</h2>
+<p class="muted">Copy this, paste it into a new Claude chat and send. It holds your question and the facts for {{ r.n }} brand(s)/creator(s).</p>
+<textarea id="prompt" class="code" rows="14" readonly>{{ r.pack }}</textarea>
+<p><button class="btn primary" data-copy="#prompt">Copy to clipboard</button> <span id="copied" class="muted small"></span></p></section>{% endif %}
+{% endblock %}

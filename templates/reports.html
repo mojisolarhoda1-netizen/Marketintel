@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}Reports{% endblock %}
+{% block crumbs %}<h1>Reports</h1>{% endblock %}
+{% block content %}
+<section class="card">
+  <h2>Generate a report</h2>
+  <form method="post" action="{{ url_for('report_create') }}" class="form row wrap">{{ csrf() }}
+    <select name="entity_id" required><option value="">Choose a brand or influencer…</option>{% for e in ents %}<option value="{{ e.id }}">{{ e.name }} ({{ e.kind }})</option>{% endfor %}</select>
+    <select name="days"><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="90">Last 90 days</option></select>
+    <select name="engine">{% for g in engines %}<option value="{{ g.id }}" {{ 'disabled' if not g.available }}>{{ g.name }}{{ '' if g.available else ' — ' ~ g.note }}</option>{% endfor %}</select>
+    <button class="btn primary">Generate</button>
+  </form>
+  <div class="engines">{% for g in engines %}<div class="engine {{ 'ok' if g.available else 'off' }}"><strong>{{ g.name }}</strong><small>{{ g.note }}</small></div>{% endfor %}</div>
+  <p class="muted small">Every engine works only from numbers stored in this workspace. Each report shows its date range, its sources and what was missing.</p>
+</section>
+<section class="card" id="schedules">
+  <div class="cardhead"><h2>Scheduled reports</h2><form method="post" action="{{ url_for('schedule_run') }}" class="inline">{{ csrf() }}<button class="btn">Run due reports now</button></form></div>
+  <table class="tbl"><thead><tr><th>For</th><th>How often</th><th>Last run</th><th></th></tr></thead><tbody>
+  {% for s in scheds %}<tr><td>{% if s.watchlist_id %}Watchlist: {{ s.wname }}{% else %}{{ s.ename }}{% endif %}</td><td>{{ s.frequency }}</td><td>{{ ago(s.last_run) }}</td>
+  <td><form method="post" action="{{ url_for('schedule_delete', sid=s.id) }}" class="inline">{{ csrf() }}<button class="link">remove</button></form></td></tr>
+  {% else %}<tr><td colspan="4" class="muted">None yet.</td></tr>{% endfor %}</tbody></table>
+  <form method="post" action="{{ url_for('schedule_create') }}" class="form row wrap">{{ csrf() }}
+    <select name="target" required><option value="">Report on…</option>{% for w in lists %}<option value="w:{{ w.id }}">Watchlist: {{ w.name }}</option>{% endfor %}{% for e in real_ents %}<option value="e:{{ e.id }}">{{ e.name }}</option>{% endfor %}</select>
+    <select name="frequency"><option value="weekly">Weekly (last 7 days)</option><option value="monthly">Monthly (last 30 days)</option></select>
+    <button class="btn">Schedule</button></form>
+  <p class="muted small">Due reports are written as PDF + CSV into <code>data/reports/&lt;name&gt;/</code> whenever collection runs (<code>collect_due.bat</code> / Task Scheduler) or when you press “Run due reports now”. Nothing is emailed or uploaded.</p>
+</section>
+<section class="card flush"><table class="tbl">
+<thead><tr><th>Report</th><th>Period</th><th>Engine</th><th>Generated</th><th>Download</th></tr></thead><tbody>
+{% for r in rows %}<tr><td><a href="{{ url_for('report_view', rid=r.id) }}">{{ r.title }}</a></td><td class="nowrap">{{ r.period_start[:10] }} → {{ r.period_end[:10] }}</td>
+<td>{{ r.engine }}</td><td>{{ ago(r.generated_at) }}</td><td class="nowrap"><a href="{{ url_for('report_pdf_dl', rid=r.id) }}">PDF</a> · <a href="{{ url_for('report_csv_dl', rid=r.id) }}">CSV</a></td></tr>
+{% else %}<tr><td colspan="5" class="muted pad">No reports yet.</td></tr>{% endfor %}
+</tbody></table></section>
+{% endblock %}

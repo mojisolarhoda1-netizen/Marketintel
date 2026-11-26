@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Market Intel{% endblock %} · Market Intel</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</head>
+<body>
+<input type="checkbox" id="navtoggle" class="navtoggle" aria-label="Menu">
+<aside class="side">
+  <div class="brandmark"><span class="logo">MI</span><div><strong>Market Intel</strong><small>Africa · working name</small></div></div>
+  <nav>
+    <a href="{{ url_for('overview') }}" class="{{ 'on' if nav=='overview' }}">Overview</a>
+    <div class="navlabel">Monitor</div>
+    <a href="{{ url_for('brands') }}" class="{{ 'on' if nav=='brands' }}">Brands</a>
+    <a href="{{ url_for('influencers') }}" class="{{ 'on' if nav in ('influencers','influencer_compare') }}">Influencers</a>
+    <a href="{{ url_for('competitors') }}" class="{{ 'on' if nav=='competitors' }}">Competitors</a>
+    <a href="{{ url_for('listening') }}" class="{{ 'on' if nav=='listening' }}">Social listening</a>
+    <a href="{{ url_for('topics_page') }}" class="{{ 'on' if nav in ('topics_page','topic_detail') }}">Topics</a>
+    <a href="{{ url_for('campaigns_page') }}" class="{{ 'on' if nav in ('campaigns_page','campaign_detail') }}">Campaigns</a>
+    <a href="{{ url_for('discover') }}" class="{{ 'on' if nav=='discover' }}">Discover creators</a>
+    <a href="{{ url_for('watchlists') }}" class="{{ 'on' if nav in ('watchlists','watchlist_detail') }}">Client watchlists</a>
+    <div class="navlabel">Intelligence</div>
+    <a href="{{ url_for('insights_page') }}" class="{{ 'on' if nav=='insights_page' }}">Opportunities</a>
+    <a href="{{ url_for('ask_page') }}" class="{{ 'on' if nav=='ask_page' }}">Ask your data</a>
+    <a href="{{ url_for('reports') }}" class="{{ 'on' if nav in ('reports','report_view','report_handoff') }}">Reports</a>
+    <a href="{{ url_for('alerts') }}" class="{{ 'on' if nav=='alerts' }}">Alerts{% if unread_alerts %}<span class="pill">{{ unread_alerts }}</span>{% endif %}</a>
+    <div class="navlabel">System</div>
+    <a href="{{ url_for('sources') }}" class="{{ 'on' if nav=='sources' }}">Data sources</a>
+  </nav>
+  <div class="sidefoot">{{ 'Online' if online else 'Local' }} · {{ 'sample data loaded' if has_sample else 'no sample data' }}{% if signed_in %} · <a href="{{ url_for('logout') }}" style="color:#94a3b8">Sign out</a>{% endif %}</div>
+</aside>
+<main>
+  <header class="top">
+    <label for="navtoggle" class="burger" aria-hidden="true">☰</label>
+    <div class="crumbs">{% block crumbs %}{% endblock %}</div>
+    <div class="topright">{% block actions %}{% endblock %}</div>
+  </header>
+  {% if has_sample %}<div class="samplebar"><span>Fictional <span class="tag sample">SAMPLE</span> data is loaded{{ ' and visible' if show_sample else ', but hidden' }}. It is never counted in your real totals or mixed into real reports. Remove it with <code>python manage.py clear-sample</code>.</span>
+    <form method="post" action="{{ url_for('toggle_sample') }}" class="inline"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="next" value="{{ request.full_path }}"><button class="btn small">{{ 'Hide sample data' if show_sample else 'Show sample data' }}</button></form></div>{% endif %}
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% for cat, m in msgs %}<div class="flash {{ cat }}">{{ m }}</div>{% endfor %}
+  {% endwith %}
+  <div class="content">{% block content %}{% endblock %}</div>
+</main>
+</body>
+</html>

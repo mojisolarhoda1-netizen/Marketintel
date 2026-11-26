@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}Discover creators{% endblock %}
+{% block crumbs %}<h1>Discover creators</h1>{% endblock %}
+{% block content %}
+<section class="card">
+  <h2>Search YouTube channels</h2>
+  {% if not yt_ok %}
+    <div class="flash info">{{ yt_why }} Getting a key is free: Google Cloud Console → create project → enable “YouTube Data API v3” → Credentials → API key. Then put it in <code>.env</code> and restart.</div>
+  {% endif %}
+  <form method="get" class="form row">
+    <input name="q" value="{{ q }}" placeholder="e.g. Lagos food review, Nigerian tech, Afrobeats dance" size="40" {{ 'disabled' if not yt_ok }}>
+    <select name="region">{% for r in ('NG','GH','KE','ZA','EG','GB','US') %}<option {{ 'selected' if r==region }}>{{ r }}</option>{% endfor %}</select>
+    <button class="btn primary" {{ 'disabled' if not yt_ok }}>Search</button>
+  </form>
+  <p class="muted small">YouTube allows 100 searches a day on a free key (the app stops at {{ budget }}). Searches used today: {{ units }}. Each search also uses 1 of your 10,000 daily units for the channel stats.</p>
+  {% if error %}<div class="flash error">{{ error }}</div>{% endif %}
+</section>
+
+{% if results %}
+<section class="card flush"><table class="tbl">
+<thead><tr><th>Channel</th><th>Country</th><th class="num">Subscribers</th><th class="num">Videos</th><th class="num">Total views</th><th></th></tr></thead><tbody>
+{% for r in results %}<tr>
+<td><strong>{{ r.title }}</strong><div class="muted small clip">{{ r.handle or '' }} {{ r.description }}</div></td>
+<td>{{ r.country or '—' }}</td><td class="num">{{ fmt(r.subscribers) }}</td><td class="num">{{ fmt(r.videos) }}</td><td class="num">{{ fmt(r.views) }}</td>
+<td>{% if r.tracked %}<span class="tag">tracked</span>{% else %}
+<form method="post" action="{{ url_for('discover_track') }}" class="inline">{{ csrf() }}
+<input type="hidden" name="title" value="{{ r.title }}"><input type="hidden" name="channel_id" value="{{ r.channel_id }}">
+<input type="hidden" name="country" value="{{ r.country or region }}"><input type="hidden" name="niche" value="{{ q }}"><input type="hidden" name="q" value="{{ q }}">
+<button class="btn">Track</button></form>{% endif %}</td></tr>{% endfor %}
+</tbody></table></section>
+{% elif q and yt_ok and not error %}<p class="muted">No channels found.</p>{% endif %}
+
+<section class="card">
+  <h2>Other ways to build your creator list (all free)</h2>
+  <ul class="plain">
+    <li><strong>Instagram:</strong> add a creator with their handle on the <a href="{{ url_for('influencers') }}">Influencers</a> page. Public professional accounts are measured once the free Instagram connection is set up.</li>
+    <li><strong>TikTok and others:</strong> record follower counts manually, or import many at once with a CSV on <a href="{{ url_for('sources') }}">Data sources</a>.</li>
+    <li><strong>Creator Connect (later):</strong> creators opt in and connect their own accounts — the planned way to get TikTok and audience data legally.</li>
+  </ul>
+</section>
+{% endblock %}

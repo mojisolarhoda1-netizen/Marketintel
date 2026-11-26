@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, sentiment, period_tabs %}
+{% block title %}{{ t.name }}{% endblock %}
+{% block crumbs %}<a href="{{ url_for('topics_page') }}" class="muted">Topics</a> / <h1>{{ t.name }}</h1>{% endblock %}
+{% block actions %}{{ period_tabs(days, 'topic_detail', {'tid': t.id}) }}
+<form method="post" action="{{ url_for('topics_scan') }}" class="inline">{{ csrf() }}<input type="hidden" name="next" value="{{ url_for('topic_detail', tid=t.id) }}"><button class="btn primary" {{ 'disabled' if job=='running' }}>{{ 'Scanning…' if job=='running' else 'Scan news now' }}</button></form>{% endblock %}
+{% block content %}
+{% if job=='running' %}<div class="flash info" data-poll="{{ url_for('job_key', key='topics') }}">Scanning… this page refreshes when done.</div>{% endif %}
+<div class="meta">{% for k in kws %}<span class="kw">{{ k }}</span>{% endfor %}</div>
+<section class="kpis">
+<div class="kpi"><span>Stories, last {{ days }} days</span><strong>{{ s.count }}</strong></div>
+<div class="kpi"><span>Net sentiment</span><strong class="{{ 'up' if s.net and s.net>0 else 'down' if s.net and s.net<0 }}">{{ ('%+d'|format(s.net)) if s.net is not none else '—' }}</strong><small>{{ s.positive }} pos · {{ s.neutral }} neu · {{ s.negative }} neg</small></div>
+<div class="kpi"><span>Top publisher</span><strong style="font-size:17px">{{ s.publishers[0][0] if s.publishers else '—' }}</strong></div>
+</section>
+<div class="grid2">
+<section class="card"><div class="cardhead"><h2>Stories per day</h2></div>{{ chart }}{% if s.count %}<div class="sentline">{{ bar }}</div>{% endif %}</section>
+<section class="card"><h2>Your brands in these stories</h2>
+{% for b in s.co_mentions %}<div class="fact"><span><a href="{{ url_for('entity_detail', eid=b.id) }}">{{ b.name }}</a></span><b>{{ b.n }}</b></div>
+{% else %}<p class="muted">None of your tracked brands appear in this topic's stories yet.</p>{% endfor %}
+<h3>Recurring words</h3><p>{% for w, n in s.words %}<span class="kw">{{ w }} {{ n }}</span> {% else %}<span class="muted">—</span>{% endfor %}</p></section>
+</div>
+<section class="card flush"><table class="tbl">
+<thead><tr><th>Date</th><th>Headline</th><th>Publisher</th><th>Matched</th><th>Tone</th></tr></thead><tbody>
+{% for i in s['items'][:100] %}<tr><td class="nowrap">{{ (i.published_at or i.collected_at)[:10] }}</td>
+<td>{% if i.url %}<a href="{{ i.url }}" target="_blank" rel="noopener">{{ i.title }}</a>{% else %}{{ i.title }}{% endif %} <span class="origin live">LIVE</span></td>
+<td>{{ i.publisher }}</td><td><span class="kw">{{ i.matched }}</span></td><td>{{ sentiment(i.sentiment_label, i.sentiment_score) }}</td></tr>
+{% else %}<tr><td colspan="5" class="muted pad">No stories yet. Press “Scan news now”.</td></tr>{% endfor %}
+</tbody></table></section>
+<form method="post" action="{{ url_for('topic_delete', tid=t.id) }}" class="inline" data-confirm="Delete this topic and its stories?">{{ csrf() }}<button class="btn danger">Delete topic</button></form>
+{% endblock %}

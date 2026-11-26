@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in · Market Intel</title><link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"></head>
+<body class="loginpage">
+<main class="loginbox">
+  <div class="brandmark"><span class="logo">MI</span><div><strong>Market Intel</strong><small>Africa</small></div></div>
+  <h1>Sign in</h1>
+  {% if err %}<div class="flash error">{{ err }}</div>{% endif %}
+  <form method="post" class="form">
+    <label class="small muted" for="pw">Password</label>
+    <input id="pw" type="password" name="password" autocomplete="current-password" required autofocus style="width:100%">
+    <p><button class="btn primary" style="width:100%;justify-content:center">Sign in</button></p>
+  </form>
+  <p class="muted small">Private workspace. The password is the APP_PASSWORD you set in Vercel.</p>
+</main></body></html>

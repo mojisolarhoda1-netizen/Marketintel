@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}Client watchlists{% endblock %}
+{% block crumbs %}<h1>Client watchlists</h1>{% endblock %}
+{% block content %}
+<p class="kpinote">Group each client's brand, competitors and creators in one place. Schedule weekly or monthly reports for the whole group.</p>
+<section class="card flush"><table class="tbl">
+<thead><tr><th>Watchlist</th><th class="num">Brands</th><th class="num">Creators</th><th>Notes</th></tr></thead><tbody>
+{% for w in rows %}<tr><td><a href="{{ url_for('watchlist_detail', wid=w.id) }}"><strong>{{ w.name }}</strong></a></td>
+<td class="num">{{ w.brands or 0 }}</td><td class="num">{{ w.creators or 0 }}</td><td class="muted clip">{{ w.notes or '' }}</td></tr>
+{% else %}<tr><td colspan="4" class="muted pad">No watchlists yet. Create one per client below.</td></tr>{% endfor %}
+</tbody></table></section>
+<section class="card"><h2>New watchlist</h2>
+<form method="post" action="{{ url_for('watchlist_create') }}" class="form row wrap">{{ csrf() }}
+<input name="name" placeholder="e.g. Client: Zeta Foods" required maxlength="100"><input name="notes" placeholder="notes (optional)" maxlength="1000">
+<button class="btn primary">Create</button></form></section>
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "_macros.html" import sentiment, sample_tag, source_label, origin %}
+{% block title %}Social listening{% endblock %}
+{% block crumbs %}<h1>Social listening</h1>{% endblock %}
+{% block content %}
+<form class="filters" method="get">
+  <input name="q" placeholder="Keyword in headline or text" value="{{ args.get('q','') }}">
+  <select name="entity"><option value="">All tracked</option>{% for e in ents %}<option value="{{ e.id }}" {{ 'selected' if args.get('entity')|string==e.id|string }}>{{ e.name }}</option>{% endfor %}</select>
+  <select name="sentiment"><option value="">Any sentiment</option>{% for s in ('positive','neutral','negative') %}<option {{ 'selected' if args.get('sentiment')==s }}>{{ s }}</option>{% endfor %}</select>
+  <select name="kind"><option value="">All types</option>{% for k in ('mention','post','video') %}<option {{ 'selected' if args.get('kind')==k }}>{{ k }}</option>{% endfor %}</select>
+  <select name="source"><option value="">All sources</option>{% for s in sources %}<option value="{{ s.source_id }}" {{ 'selected' if args.get('source')==s.source_id }}>{{ s.source_id }}</option>{% endfor %}</select>
+  <select name="origin"><option value="">Live + sample</option><option value="live" {{ 'selected' if args.get('origin')=='live' }}>Live only</option><option value="sample" {{ 'selected' if args.get('origin')=='sample' }}>Sample only</option></select>
+  <input name="country" placeholder="Country" maxlength="2" size="7" value="{{ args.get('country','') }}">
+  <select name="days">{% for d in (7,30,90,365) %}<option value="{{ d }}" {{ 'selected' if days==d }}>Last {{ d }} days</option>{% endfor %}</select>
+  <button class="btn">Apply</button>{% if args %}<a href="?" class="muted">Clear</a>{% endif %}
+</form>
+<section class="card">
+  <div class="cardhead"><h2>{{ total }} item{{ '' if total==1 else 's' }}</h2><small class="muted">{{ counts.get('positive',0) }} positive · {{ counts.get('neutral',0) }} neutral · {{ counts.get('negative',0) }} negative</small></div>
+  {{ bar }}
+</section>
+<section class="card flush">
+<table class="tbl">
+<thead><tr><th>Date</th><th>Headline / text</th><th>About</th><th>Publisher</th><th>Sentiment</th><th>Source</th></tr></thead>
+<tbody>
+{% for m in rows %}
+<tr><td class="nowrap">{{ (m.published_at or m.collected_at)[:10] }}</td>
+<td>{% if m.url %}<a href="{{ m.url }}" target="_blank" rel="noopener">{{ (m.title or '')[:140] }}</a>{% else %}{{ (m.title or '')[:140] }}{% endif %} {{ sample_tag(m.is_sample) }}</td>
+<td><a href="{{ url_for('entity_detail', eid=m.entity_id) }}">{{ m.ename }}</a></td><td>{{ m.publisher or '—' }}</td>
+<td>{{ sentiment(m.sentiment_label, m.sentiment_score) }}</td><td>{{ origin(m.source_id) }} {{ source_label(m.source_id) }}</td></tr>
+{% else %}<tr><td colspan="6" class="muted pad">Nothing matches. Collected mentions appear here.</td></tr>{% endfor %}
+</tbody></table></section>
+<p class="muted small">Showing up to 200 newest. Sentiment is scored offline with an English + Pidgin word list: a signal, not a verdict. Hashtag and public-conversation listening on Instagram and X switch on when those sources are connected.</p>
+{% endblock %}

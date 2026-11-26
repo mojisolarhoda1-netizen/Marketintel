@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- TEST FIXTURE: structure modelled on a WordPress RSS 2.0 feed. Headlines are invented for tests. -->
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/">
+<channel>
+  <title>Test Business News</title><link>https://news.example/</link><description></description>
+  <item>
+    <title>Acme Pay expands to Ghana after strong growth</title>
+    <link>https://news.example/2026/11/20/acme-pay-expands/</link>
+    <guid isPermaLink="false">https://news.example/?p=1001</guid>
+    <pubDate>Fri, 20 Nov 2026 20:16:39 +0000</pubDate>
+    <dc:creator><![CDATA[Staff Writer]]></dc:creator>
+    <description><![CDATA[<p>Acme Pay said customers love the new app.</p>]]></description>
+  </item>
+  <item>
+    <title>Customers complain of Acme Pay outage and failed transfers</title>
+    <link>https://news.example/2026/11/19/acme-outage/</link>
+    <guid isPermaLink="false">https://news.example/?p=1002</guid>
+    <pubDate>Thu, 19 Nov 2026 09:00:00 +0000</pubDate>
+    <description>Users reported failed transfers for six hours.</description>
+  </item>
+  <item>
+    <title>Bolt Bank announces new savings product</title>
+    <link>https://news.example/2026/11/18/bolt-savings/</link>
+    <guid isPermaLink="false">https://news.example/?p=1003</guid>
+    <pubDate>Wed, 18 Nov 2026 12:00:00 +0000</pubDate>
+    <description>Bolt Bank, a rival to AcmePayments, launches savings.</description>
+  </item>
+  <item>
+    <title>Acmeville council meets</title>
+    <link>https://news.example/2026/11/18/acmeville/</link>
+    <guid isPermaLink="false">https://news.example/?p=1004</guid>
+    <pubDate>Wed, 18 Nov 2026 12:00:00 +0000</pubDate>
+    <description>Not about the brand.</description>
+  </item>
+</channel></rss>

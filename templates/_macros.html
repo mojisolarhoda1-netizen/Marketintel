@@ -1,0 +1,22 @@
+{% macro sentiment(label, score=None) -%}
+{% if label %}<span class="sent {{ label }}" title="score {{ '%.2f'|format(score) if score is not none else '' }}">{{ label }}</span>{% else %}<span class="muted">—</span>{% endif %}
+{%- endmacro %}
+
+{% macro sample_tag(flag) -%}{% if flag %}<span class="tag sample">SAMPLE</span>{% endif %}{%- endmacro %}
+
+{% macro source_label(sid) -%}
+{%- set names = {'rss_news':'News RSS','website':'Website','manual':'Manual entry','youtube':'YouTube API','instagram':'Instagram API','google_news':'Google News','sample':'Sample data','tiktok':'TikTok','x':'X API'} -%}
+<span class="src">{{ names.get(sid, sid) }}</span>
+{%- endmacro %}
+
+{% macro origin(sid) -%}
+{%- set o = origin_of(sid) -%}<span class="origin {{ o[0]|lower }}" title="{{ o[1] }}">{{ o[0] }}</span>
+{%- endmacro %}
+
+{% macro status(s) -%}<span class="status {{ s }}">{{ s }}</span>{%- endmacro %}
+
+{% macro csrf() -%}<input type="hidden" name="_csrf" value="{{ csrf_token }}">{%- endmacro %}
+
+{% macro period_tabs(days, endpoint, extra={}) -%}
+<div class="tabs">{% for d in (7, 30, 90, 365) %}<a href="{{ url_for(endpoint, days=d, **extra) }}" class="{{ 'on' if days==d }}">{{ d }}d</a>{% endfor %}</div>
+{%- endmacro %}

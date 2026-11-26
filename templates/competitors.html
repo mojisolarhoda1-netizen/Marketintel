@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% from "_macros.html" import sample_tag, period_tabs %}
+{% block title %}Competitors{% endblock %}
+{% block crumbs %}<h1>Competitor intelligence</h1>{% endblock %}
+{% block actions %}{% if sel %}{{ period_tabs(days, 'competitors', {'brand': sel}) }}{% endif %}{% endblock %}
+{% block content %}
+{% if not brands_with %}
+<section class="card empty-state"><h2>No competitor sets yet</h2>
+<p>Open a brand and add its competitors in the “Competitors” section. This page then compares them side by side: share of voice, sentiment, audience, website changes.</p>
+<a class="btn primary" href="{{ url_for('brands') }}">Go to brands</a></section>
+{% else %}
+<form class="filters" method="get"><label>Compare set for <select name="brand" data-autosubmit>{% for b in brands_with %}<option value="{{ b.id }}" {{ 'selected' if b.id==sel }}>{{ b.name }}</option>{% endfor %}</select></label><input type="hidden" name="days" value="{{ days }}"><noscript><button class="btn">Show</button></noscript></form>
+
+<section class="card flush">
+<table class="tbl">
+<thead><tr><th>Brand</th><th class="num">Mentions ({{ days }}d)</th><th>Share of voice</th><th>Net sentiment</th><th>Audience (latest)</th><th class="num">Website changes</th><th>Latest headline</th></tr></thead>
+<tbody>
+{% for r in table %}
+<tr class="{{ 'mainrow' if r.is_main }}">
+  <td class="namecell"><a href="{{ url_for('entity_detail', eid=r.e.id) }}"><strong>{{ r.e.name }}</strong></a> {{ sample_tag(r.e.is_sample) }}{% if r.is_main %} <span class="tag">you</span>{% endif %}</td>
+  <td class="num">{{ r.mentions }}</td>
+  <td><div class="meter"><span style="width:{{ r.share or 0 }}%"></span></div> {{ (r.share ~ '%') if r.share is not none else '—' }}</td>
+  <td>{% if r.sent.net is not none %}<span class="{{ 'up' if r.sent.net>0 else 'down' if r.sent.net<0 }}">{{ '%+d'|format(r.sent.net) }}</span> <small class="muted">({{ r.sent.count }})</small>{% else %}<span class="muted">—</span>{% endif %}</td>
+  <td>{% for p, v in r.followers.items() %}<div><span class="plat {{ p }}">{{ p }}</span> {{ fmt(v) }}</div>{% else %}<span class="muted">not collected</span>{% endfor %}</td>
+  <td class="num">{{ r.page_changes }}</td>
+  <td class="clip">{% if r.last %}{{ r.last.title }} <small class="muted">· {{ r.last.publisher }} {{ (r.last.published_at or '')[:10] }}</small>{% else %}<span class="muted">none</span>{% endif %}</td>
+</tr>
+{% endfor %}
+</tbody></table></section>
+
+<section class="card"><div class="cardhead"><h2>Audience growth</h2><span class="muted">each brand's largest platform</span></div>{{ chart }}</section>
+<p class="muted small">Pricing is compared from public website snapshots where the website monitor can read prices. Product launches show up as website and headline changes.</p>
+{% endif %}
+{% endblock %}

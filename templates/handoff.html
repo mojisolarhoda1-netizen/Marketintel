@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}Claude Pro hand-off{% endblock %}
+{% block crumbs %}<a href="{{ url_for('reports') }}" class="muted">Reports</a> / <h1>Claude Pro hand-off</h1>{% endblock %}
+{% block content %}
+<section class="card">
+  <h2>1. Copy this data pack</h2>
+  <p class="muted">It contains the instructions and every fact for <strong>{{ r.title }}</strong>. Nothing is sent anywhere automatically.</p>
+  <textarea id="prompt" class="code" rows="16" readonly>{{ prompt }}</textarea>
+  <p><button class="btn primary" data-copy="#prompt">Copy to clipboard</button> <span class="muted small" id="copied"></span></p>
+</section>
+<section class="card">
+  <h2>2. Paste it into a new Claude chat</h2>
+  <p>Open claude.ai, start a new chat, paste, and send. Claude writes the report from these facts only.</p>
+</section>
+<section class="card">
+  <h2>3. Paste Claude's answer back here to save it</h2>
+  <form method="post" action="{{ url_for('report_paste', rid=r.id) }}" class="form">{{ csrf() }}
+    <textarea name="narrative" rows="12" placeholder="Paste the report Claude wrote…"></textarea>
+    <button class="btn primary">Save to this report</button> <a href="{{ url_for('report_view', rid=r.id) }}" class="muted">Skip — keep the built-in version</a>
+  </form>
+  <p class="muted small">The saved report keeps the original facts and “missing” list beside it, so you can check Claude's numbers against them.</p>
+</section>
+{% endblock %}

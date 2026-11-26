@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, sample_tag %}
+{% block title %}Campaigns{% endblock %}
+{% block crumbs %}<h1>Campaign tracking</h1>{% endblock %}
+{% block content %}
+<p class="kpinote">Measure a campaign against the same number of days just before it: press mentions, tone, follower change, creator posts and hashtag pick-up.</p>
+<section class="card flush"><table class="tbl">
+<thead><tr><th>Campaign</th><th>Brand</th><th>Dates</th><th class="num">Creators</th><th>Status</th></tr></thead><tbody>
+{% for c in rows %}<tr><td><a href="{{ url_for('campaign_detail', cid=c.id) }}"><strong>{{ c.name }}</strong></a> {{ sample_tag(c.is_sample) }}</td><td>{{ c.brand }}</td>
+<td class="nowrap">{{ c.start_date }} → {{ c.end_date }}</td><td class="num">{{ c.creators }}</td>
+<td>{% if today < c.start_date %}<span class="status">upcoming</span>{% elif today <= c.end_date %}<span class="status ok">running</span>{% else %}<span class="status skipped">finished</span>{% endif %}</td></tr>
+{% else %}<tr><td colspan="5" class="muted pad">No campaigns yet.</td></tr>{% endfor %}
+</tbody></table></section>
+<section class="card"><h2>New campaign</h2>
+{% if not brands %}<p class="muted">Add the brand first on the Brands page.</p>{% else %}
+<form method="post" action="{{ url_for('campaign_create') }}" class="form grid-form">{{ csrf() }}
+<label>Brand<select name="brand_id" required>{% for b in brands %}<option value="{{ b.id }}">{{ b.name }}</option>{% endfor %}</select></label>
+<label>Campaign name<input name="name" required maxlength="120" placeholder="e.g. Detty December promo"></label>
+<label>Start date<input type="date" name="start_date" required></label>
+<label>End date<input type="date" name="end_date" required></label>
+<label class="wide">Campaign hashtags / slogans (comma separated)<input name="keywords" placeholder="#ZetaDecember, Taste the season"></label>
+<label class="wide">Creators involved (Ctrl-click for several)<select name="influencer_id" multiple size="5">{% for i in infl %}<option value="{{ i.id }}">{{ i.name }}</option>{% endfor %}</select></label>
+<label class="wide">Notes<textarea name="notes" rows="2" maxlength="2000"></textarea></label>
+<div class="wide"><button class="btn primary">Create campaign</button></div></form>{% endif %}</section>
+{% endblock %}

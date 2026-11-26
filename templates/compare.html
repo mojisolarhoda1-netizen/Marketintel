@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% from "_macros.html" import sample_tag, origin %}
+{% block title %}Compare creators{% endblock %}
+{% block crumbs %}<a href="{{ url_for('influencers') }}" class="muted">Influencers</a> / <h1>Compare creators</h1>{% endblock %}
+{% block content %}
+<form method="get" class="filters">
+{% for i in range(4) %}<select name="ids"><option value="">— choose —</option>{% for x in all_infl %}<option value="{{ x.id }}" {{ 'selected' if ids|length > i and ids[i]==x.id }}>{{ x.name }}</option>{% endfor %}</select>{% endfor %}
+<button class="btn primary">Compare</button></form>
+{% if cols|length < 2 %}<section class="card empty-state"><h2>Pick two to four creators</h2><p>Use the boxes above, or tick creators on the Influencers page.</p></section>
+{% else %}
+<section class="card flush"><table class="tbl compare">
+<thead><tr><th></th>{% for c in cols %}<th><a href="{{ url_for('entity_detail', eid=c.e.id) }}">{{ c.e.name }}</a> {{ sample_tag(c.e.is_sample) }}<div class="muted small">{{ c.e.category or '' }} {{ c.e.country or '' }}</div></th>{% endfor %}</tr></thead>
+<tbody>
+{% for p in platforms %}
+<tr class="grouprow"><td colspan="{{ cols|length + 1 }}">{{ p|plat }}</td></tr>
+{% for m in ('followers','engagement_rate','avg_likes','avg_comments','avg_views','posts') %}
+<tr><td>{{ metric_labels[m] }}</td>{% for c in cols %}{% set v = c.plats.get(p, {}).get(m) %}
+<td class="num">{% if v %}{% if m=='engagement_rate' %}{{ '%.2f%%'|format(v.value) }}{% else %}{{ fmt(v.value) }}{% endif %} <span class="muted small">{{ v.observed_at[:10] }}</span> {{ origin(v.source_id) }}{% else %}<span class="muted">—</span>{% endif %}</td>{% endfor %}</tr>
+{% endfor %}
+<tr><td>Follower growth, 30 days</td>{% for c in cols %}<td class="num">{% if p in c.growth %}<span class="{{ 'up' if c.growth[p]>0 else 'down' if c.growth[p]<0 }}">{{ '%+.1f%%'|format(c.growth[p]) }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>{% endfor %}</tr>
+{% endfor %}
+<tr class="grouprow"><td colspan="{{ cols|length + 1 }}">Signals</td></tr>
+<tr><td>Authenticity checks to look at</td>{% for c in cols %}<td class="num">{% if c.watch %}<span class="down">{{ c.watch }} watch</span>{% else %}none{% endif %}{% if c.unknown %} <span class="muted small">({{ c.unknown }} need more data)</span>{% endif %}</td>{% endfor %}</tr>
+<tr><td>Press mentions, 30 days</td>{% for c in cols %}<td class="num">{{ c.sent.count }}</td>{% endfor %}</tr>
+<tr><td>Brands mentioned in posts</td>{% for c in cols %}<td>{{ (c.partners|map(attribute='brand')|unique|list)[:4]|join(', ') or '—' }}</td>{% endfor %}</tr>
+</tbody></table></section>
+<p class="muted small">"—" means not collected yet; nothing is estimated. Engagement = (avg likes + avg comments) ÷ followers, from each creator's 12 most recent posts.</p>
+{% endif %}
+{% endblock %}

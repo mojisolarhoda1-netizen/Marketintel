@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}{{ r.title }}{% endblock %}
+{% block crumbs %}<a href="{{ url_for('reports') }}" class="muted">Reports</a> / <h1>{{ r.title }}</h1>{% endblock %}
+{% block actions %}
+<a class="btn" href="{{ url_for('report_handoff', rid=r.id) }}">Improve with Claude Pro</a>
+<a class="btn" href="{{ url_for('report_csv_dl', rid=r.id) }}">CSV</a>
+<a class="btn primary" href="{{ url_for('report_pdf_dl', rid=r.id) }}">Download PDF</a>
+{% endblock %}
+{% block content %}
+<div class="reportwrap">
+<article class="card report">
+  <div class="reportmeta">Period <strong>{{ r.period_start[:10] }} → {{ r.period_end[:10] }}</strong> · generated {{ r.generated_at[:16]|replace('T',' ') }} UTC · engine <strong>{{ r.engine }}</strong></div>
+  {% if facts.is_sample %}<div class="flash error">This report is built on SAMPLE data. Do not share it with clients.</div>{% endif %}
+  {{ body|safe }}
+</article>
+<aside class="card factbox">
+  <h3>Facts used</h3>
+  <p class="muted small">Every number in the report comes from this list.</p>
+  {% for p in facts.platforms %}{% for m in p.metrics %}
+    <div class="fact"><span>{{ p.platform|plat }} · {{ m.label }}</span><b>{{ fmt(m.latest, 2 if m.metric=='engagement_rate' else 0) }}</b></div>
+  {% endfor %}{% endfor %}
+  <div class="fact"><span>Mentions</span><b>{{ facts.mentions.count }}</b></div>
+  <div class="fact"><span>Net sentiment</span><b>{{ ('%+d'|format(facts.sentiment.net)) if facts.sentiment.net is not none else '—' }}</b></div>
+  <h3>Missing</h3>
+  <ul class="plain small">{% for m in facts.missing %}<li>{{ m }}</li>{% else %}<li>Nothing flagged</li>{% endfor %}</ul>
+</aside>
+</div>
+{% endblock %}

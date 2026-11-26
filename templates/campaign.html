@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, sentiment, origin %}
+{% block title %}{{ f.campaign.name }}{% endblock %}
+{% block crumbs %}<a href="{{ url_for('campaigns_page') }}" class="muted">Campaigns</a> / <h1>{{ f.campaign.name }}</h1>{% if f.is_sample %} <span class="tag sample">SAMPLE</span>{% endif %}{% endblock %}
+{% block actions %}<a class="btn" href="{{ url_for('campaign_csv_dl', cid=f.campaign.id) }}">CSV</a><a class="btn primary" href="{{ url_for('campaign_pdf', cid=f.campaign.id) }}">Download PDF</a>{% endblock %}
+{% block content %}
+<div class="meta"><span><a href="{{ url_for('entity_detail', eid=f.campaign.brand_id) }}">{{ f.campaign.brand }}</a></span><span>{{ f.campaign.start_date }} → {{ f.campaign.end_date }}</span><span class="status {{ 'ok' if f.status=='running' else '' }}">{{ f.status }}</span>{% for k in f.keywords %}<span class="kw">{{ k }}</span>{% endfor %}</div>
+<section class="card"><h2>Summary</h2>{% for l in summary %}<p>{{ l }}</p>{% endfor %}</section>
+<section class="kpis">
+<div class="kpi"><span>Press mentions vs baseline</span><strong>{{ f.mentions.campaign }}</strong><small>baseline {{ f.mentions.baseline }}{% if f.mentions.pct is not none %} · <b class="{{ 'up' if f.mentions.pct>0 else 'down' if f.mentions.pct<0 }}">{{ '%+.0f%%'|format(f.mentions.pct) }}</b>{% endif %}</small></div>
+<div class="kpi"><span>Creator posts about the brand</span><strong>{{ f.totals.posts }}</strong><small>{{ fmt(f.totals.likes) }} likes · {{ fmt(f.totals.comments) }} comments</small></div>
+<div class="kpi"><span>Campaign tags in the news</span><strong>{{ f.keyword_pickup_count }}</strong></div>
+<div class="kpi"><span>Posts without disclosure</span><strong class="{{ 'down' if f.totals.undisclosed }}">{{ f.totals.undisclosed }}</strong></div>
+</section>
+{% if f.followers %}<section class="card"><h2>Followers</h2><table class="tbl"><thead><tr><th>Platform</th><th class="num">Before</th><th class="num">Latest in campaign</th><th class="num">Change</th><th>Origin</th></tr></thead><tbody>
+{% for fo in f.followers %}<tr><td>{{ fo.platform|plat }}</td><td class="num">{{ fmt(fo.start) }} <span class="muted small">{{ fo.start_at[:10] }}</span></td><td class="num">{{ fmt(fo.end) }} <span class="muted small">{{ fo.end_at[:10] }}</span></td><td class="num {{ 'up' if fo.pct>0 else 'down' }}">{{ '%+.1f%%'|format(fo.pct) }}</td><td>{{ fo.origin }}</td></tr>{% endfor %}
+</tbody></table></section>{% endif %}
+<div class="grid2">
+<section class="card"><h2>Creators</h2>
+<table class="tbl"><thead><tr><th>Creator</th><th class="num">Posts</th><th class="num">Likes</th><th class="num">Comments</th><th class="num">No disclosure</th><th></th></tr></thead><tbody>
+{% for r in f.creators %}<tr><td><a href="{{ url_for('entity_detail', eid=r.id) }}">{{ r.name }}</a></td><td class="num">{{ r.posts }}</td><td class="num">{{ fmt(r.likes) }}</td><td class="num">{{ fmt(r.comments) }}</td><td class="num">{{ r.undisclosed }}</td>
+<td><form method="post" action="{{ url_for('campaign_remove_creator', cid=f.campaign.id, iid=r.id) }}" class="inline">{{ csrf() }}<button class="link">remove</button></form></td></tr>
+{% else %}<tr><td colspan="6" class="muted">No creators added.</td></tr>{% endfor %}</tbody></table>
+{% if others %}<form method="post" action="{{ url_for('campaign_add_creator', cid=f.campaign.id) }}" class="form row">{{ csrf() }}<select name="influencer_id">{% for o in others %}<option value="{{ o.id }}">{{ o.name }}</option>{% endfor %}</select><button class="btn">Add creator</button></form>{% endif %}
+</section>
+<section class="card"><h2>Top creator posts</h2>
+{% for p in f.posts %}<div class="mention"><div class="mt">{% if p.url %}<a href="{{ p.url }}" target="_blank" rel="noopener">{{ (p.title or 'Untitled')[:110] }}</a>{% else %}{{ (p.title or 'Untitled')[:110] }}{% endif %}</div>
+<div class="mm">{{ origin(p.source_id) }} {{ p.creator }} · {{ (p.published_at or '')[:10] }} · {{ fmt(p.likes) }} likes · {{ fmt(p.comments) }} comments · matched <b>{{ p.matched }}</b> · {{ 'disclosed' if p.disclosed else 'no disclosure found' }}</div></div>
+{% else %}<p class="muted">No creator posts in the campaign window mention the brand or tags yet.</p>{% endfor %}</section>
+</div>
+<div class="grid2">
+<section class="card"><h2>Press mentions during the campaign</h2>
+{% for m in f.mentions['items'] %}<div class="mention"><div class="mt">{% if m.url %}<a href="{{ m.url }}" target="_blank" rel="noopener">{{ m.title }}</a>{% else %}{{ m.title }}{% endif %}</div><div class="mm">{{ origin(m.source_id) }} {{ m.publisher }} · {{ (m.published_at or '')[:10] }} · {{ sentiment(m.sentiment_label, m.sentiment_score) }}</div></div>
+{% else %}<p class="muted">None.</p>{% endfor %}</section>
+<section class="card"><h2>What's missing</h2><ul class="plain">{% for m in f.missing %}<li>{{ m }}</li>{% else %}<li>Nothing flagged.</li>{% endfor %}</ul>
+<p class="muted small">Baseline: {{ f.baseline.start }} → {{ f.baseline.end }} ({{ f.baseline.days }} days).</p>
+<form method="post" action="{{ url_for('campaign_delete', cid=f.campaign.id) }}" class="inline" data-confirm="Delete this campaign? Collected data is kept.">{{ csrf() }}<button class="btn danger">Delete campaign</button></form></section>
+</div>
+{% endblock %}

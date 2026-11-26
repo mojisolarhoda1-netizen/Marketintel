@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, status %}
+{% block title %}Data sources{% endblock %}
+{% block crumbs %}<h1>Data sources</h1>{% endblock %}
+{% block content %}
+<section class="card flush">
+<table class="tbl">
+<thead><tr><th>Source</th><th>Cost</th><th>Set up?</th><th>On</th><th class="num">Runs</th><th>Last success</th><th>Last error</th></tr></thead><tbody>
+{% for s in rows if s.id != 'sample' %}
+<tr><td><strong>{{ s.name }}</strong><div class="muted small">{{ s.notes }}</div></td>
+<td><span class="tier {{ s.cost_tier }}">{{ s.cost_tier|replace('_',' ') }}</span></td>
+<td>{% if s.ready %}<span class="status ok">ready</span>{% else %}<span class="status unavailable">not set up</span><div class="muted small">{{ s.why }}</div>{% endif %}</td>
+<td>{% if s.id in ('tiktok','x') %}<span class="muted">postponed</span>{% else %}<form method="post" action="{{ url_for('source_toggle', sid=s.id) }}" class="inline">{{ csrf() }}<button class="switch {{ 'on' if s.enabled }}" aria-label="toggle">{{ 'On' if s.enabled else 'Off' }}</button></form>{% endif %}</td>
+<td class="num">{{ s.stats.runs or 0 }}</td><td>{{ ago(s.stats.last_ok) }}</td>
+<td class="muted small clip">{{ (s.last_err.message[:100] ~ ' · ' ~ ago(s.last_err.finished_at)) if s.last_err else '' }}</td></tr>
+{% endfor %}
+</tbody></table></section>
+
+<div class="grid2">
+<section class="card">
+  <h2>News feeds</h2>
+  <table class="tbl small"><tbody>
+  {% for f in feeds %}<tr><td><strong>{{ f.name }}</strong><div class="muted clip">{{ f.url }}</div>{% if f.last_error %}<div class="down">{{ f.last_error[:90] }}</div>{% endif %}</td>
+  <td>{{ '✓ verified' if f.verified else 'untested' }}</td>
+  <td><form method="post" action="{{ url_for('feed_toggle', fid=f.id) }}" class="inline">{{ csrf() }}<button class="switch {{ 'on' if f.enabled }}">{{ 'On' if f.enabled else 'Off' }}</button></form></td></tr>{% endfor %}
+  </tbody></table>
+  <form method="post" action="{{ url_for('feed_add') }}" class="form row wrap">{{ csrf() }}
+    <input name="name" placeholder="Publisher name" required maxlength="80"><input name="url" placeholder="https://…/feed/" required size="28"><input name="country" placeholder="NG" maxlength="2" size="3"><button class="btn">Add feed</button>
+  </form>
+  <p class="muted small">Most news sites publish a free RSS feed at <code>/feed/</code>. Run <code>python manage.py check-sources</code> to test all of them.</p>
+</section>
+<section class="card">
+  <h2>Import numbers from CSV</h2>
+  <p class="muted small">Columns: <code>{{ csv_headers|join(',') }}</code>. New names are created automatically. Dates as YYYY-MM-DD.</p>
+  <form method="post" action="{{ url_for('csv_import') }}" enctype="multipart/form-data" class="form row">{{ csrf() }}
+    <input type="file" name="file" accept=".csv" required><button class="btn">Import</button>
+  </form>
+  <p><a href="{{ url_for('csv_template') }}">Download a template</a></p>
+  <h2 id="report-settings">Report branding</h2>
+  <form method="post" action="{{ url_for('report_settings') }}" class="form">{{ csrf() }}
+    <label class="small muted">Prepared by (shown on PDF reports)</label>
+    <input name="prepared_by" maxlength="120" value="{{ prepared_by }}" placeholder="e.g. Dexia Global" style="width:100%">
+    <label class="small muted">Footer line</label>
+    <input name="footer" maxlength="200" value="{{ footer }}" placeholder="e.g. Confidential — prepared for client use" style="width:100%">
+    <p><button class="btn">Save</button></p>
+  </form>
+  <h2>AI engines</h2>
+  {% for g in engines %}<div class="engine {{ 'ok' if g.available else 'off' }}"><strong>{{ g.name }}</strong><small>{{ g.note }}</small></div>{% endfor %}
+  <h2>API usage (quota)</h2>
+  <table class="tbl small"><tbody>{% for u in usage %}<tr><td>{{ u.day }}</td><td>{{ u.source_id }}</td><td class="num">{{ u.units }} units</td></tr>{% else %}<tr><td class="muted">No paid or quota-limited calls yet.</td></tr>{% endfor %}</tbody></table>
+  <p class="muted small">Database: <code>{{ db_file }}</code>{% if not online %} — back it up by copying this file{% else %} — Turso keeps automatic restore points{% endif %}.</p>
+</section>
+</div>
+{% endblock %}

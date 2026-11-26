@@ -1,0 +1,4 @@
+{% extends "base.html" %}
+{% block title %}Error {{ code }}{% endblock %}
+{% block crumbs %}<h1>{{ code }}</h1>{% endblock %}
+{% block content %}<section class="card empty-state"><h2>{{ msg }}</h2><p><a class="btn" href="{{ url_for('overview') }}">Back to overview</a></p></section>{% endblock %}

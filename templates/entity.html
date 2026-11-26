@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% from "_macros.html" import sentiment, sample_tag, source_label, status, csrf, period_tabs, origin %}
+{% block title %}{{ e.name }}{% endblock %}
+{% block crumbs %}<a href="{{ url_for('brands' if e.kind=='brand' else 'influencers') }}" class="muted">{{ 'Brands' if e.kind=='brand' else 'Influencers' }}</a> / <h1>{{ e.name }}</h1> {{ sample_tag(e.is_sample) }}{% endblock %}
+{% block actions %}
+  {{ period_tabs(days, 'entity_detail', {'eid': e.id}) }}
+  <form method="post" action="{{ url_for('collect_now', eid=e.id) }}" class="inline">{{ csrf() }}
+    <button class="btn primary" {{ 'disabled' if job=='running' or e.is_sample }}>{{ 'Collecting…' if job=='running' else 'Collect now' }}</button></form>
+{% endblock %}
+{% block content %}
+{% if job == 'running' %}<div class="flash info" data-poll="{{ url_for('job_status', eid=e.id) }}">Collecting from the free sources… this page refreshes when done.</div>
+{% elif job and job.startswith('error') %}<div class="flash error">{{ job }}</div>{% endif %}
+
+<div class="meta">
+  <span>{{ e.category or 'No category' }}</span><span>{{ e.country or '—' }}</span>
+  {% if e.website %}<span><a href="{{ e.website if e.website.startswith('http') else 'https://' ~ e.website }}" target="_blank" rel="noopener">{{ e.website }}</a></span>{% endif %}
+  <span>refresh every {{ e.refresh_hours }} h</span>
+  {% for k in keywords %}<span class="kw">{{ k }}</span>{% endfor %}
+  {% for w in in_lists %}<a class="tag" href="{{ url_for('watchlist_detail', wid=w.id) }}">▸ {{ w.name }}</a>{% endfor %}
+  {% if all_lists %}<form method="post" action="{{ url_for('watchlist_add', wid=0) }}" class="inline" data-wl-form>{{ csrf() }}
+    <input type="hidden" name="entity_id" value="{{ e.id }}"><input type="hidden" name="next" value="{{ url_for('entity_detail', eid=e.id) }}">
+    <select name="wl" data-wl-select><option value="">+ Add to watchlist…</option>{% for w in all_lists %}<option value="{{ url_for('watchlist_add', wid=w.id) }}">{{ w.name }}</option>{% endfor %}</select></form>{% endif %}
+</div>
+
+<section class="kpis">
+  {% for c in cards[:8] %}
+  <div class="kpi"><span>{{ c.platform|plat }} · {{ c.label }}</span>
+    <strong>{% if c.metric=='engagement_rate' %}{{ '%.2f%%'|format(c.value) }}{% else %}{{ fmt(c.value) }}{% endif %}</strong>
+    <small>{% if c.pct is not none %}<b class="{{ 'up' if c.pct>0 else 'down' if c.pct<0 }}">{{ '%+.1f%%'|format(c.pct) }}</b> in {{ days }}d · {% endif %}{{ origin(c.source) }} {{ source_label(c.source) }} · {{ c.as_of[:10] }}</small></div>
+  {% else %}
+  <div class="kpi wide"><span>No numbers yet</span><small>Add a social account and press “Collect now”, or record numbers manually below.</small></div>
+  {% endfor %}
+</section>
+
+<div class="grid2">
+  <section class="card"><div class="cardhead"><h2>Followers over time</h2></div>{{ follower_chart }}</section>
+  <section class="card"><div class="cardhead"><h2>Mentions per day</h2><span class="muted">{{ sent.count }} scored items</span></div>
+    {{ mention_chart }}
+    {% if sent.count %}<div class="sentline">{{ sent_bar }}<small>{{ sent.positive }} positive · {{ sent.neutral }} neutral · {{ sent.negative }} negative{% if sent.net is not none %} · net {{ '%+d'|format(sent.net) }}{% endif %}</small></div>{% endif %}
+  </section>
+</div>
+
+{% if e.kind == 'influencer' %}
+<section class="card">
+  <div class="cardhead"><h2>Authenticity signals</h2><span class="muted">signal, not proof · compared only with creators you track</span></div>
+  <div class="signals">{% for s in signals %}
+    <div class="signal {{ s.level }}"><div class="sl">{{ s.level }}</div><div><strong>{{ s.platform|plat }} {{ s.name }}</strong><p>{{ s.detail }}</p></div></div>
+  {% endfor %}</div>
+</section>
+{% endif %}
+
+{% if e.kind == 'brand' %}
+<section class="card" id="competitors">
+  <div class="cardhead"><h2>Competitors</h2><a href="{{ url_for('competitors', brand=e.id) }}">Full comparison</a></div>
+  {% if sov %}
+  <table class="tbl"><thead><tr><th>Brand</th><th class="num">Mentions ({{ days }}d)</th><th>Share of voice</th><th></th></tr></thead><tbody>
+  {% for r in sov %}<tr><td>{% if r.id==e.id %}<strong>{{ r.name }}</strong>{% else %}<a href="{{ url_for('entity_detail', eid=r.id) }}">{{ r.name }}</a>{% endif %}</td><td class="num">{{ r.mentions }}</td>
+    <td><div class="meter"><span style="width:{{ r.share or 0 }}%"></span></div> {{ (r.share ~ '%') if r.share is not none else '—' }}</td>
+    <td>{% if r.id != e.id %}<form method="post" action="{{ url_for('competitor_remove', eid=e.id, cid=r.id) }}" class="inline">{{ csrf() }}<button class="link">remove</button></form>{% endif %}</td></tr>{% endfor %}
+  </tbody></table>
+  {% else %}<p class="muted">No competitors linked yet.</p>{% endif %}
+  <form method="post" action="{{ url_for('competitor_add', eid=e.id) }}" class="form row">{{ csrf() }}
+    {% if others %}<select name="competitor_id"><option value="">Pick a tracked brand…</option>{% for o in others %}<option value="{{ o.id }}">{{ o.name }}</option>{% endfor %}</select><span class="muted">or</span>{% endif %}
+    <input name="new_name" placeholder="New competitor name" maxlength="120"><input name="website" placeholder="website (optional)" maxlength="300">
+    <input type="hidden" name="country" value="{{ e.country or '' }}"><input type="hidden" name="category" value="{{ e.category or '' }}">
+    <button class="btn">Add competitor</button>
+  </form>
+</section>
+{% endif %}
+
+<div class="grid2">
+  <section class="card">
+    <div class="cardhead"><h2>Mentions</h2><a href="{{ url_for('listening', entity=e.id) }}">All</a></div>
+    {% for m in mentions %}
+      <div class="mention"><div class="mt">{% if m.url %}<a href="{{ m.url }}" target="_blank" rel="noopener">{{ m.title }}</a>{% else %}{{ m.title }}{% endif %} {{ sample_tag(m.is_sample) }}</div>
+      <div class="mm">{{ origin(m.source_id) }} {{ m.publisher or '' }} · {{ (m.published_at or m.collected_at)[:10] }} · {{ sentiment(m.sentiment_label, m.sentiment_score) }} · {{ source_label(m.source_id) }}</div></div>
+    {% else %}<p class="muted">No mentions found yet in the enabled news feeds. Tip: add short names or product names as extra search terms.</p>{% endfor %}
+  </section>
+  <section class="card">
+    <div class="cardhead"><h2>Recent posts and videos</h2></div>
+    {% for p in posts %}
+      <div class="mention"><div class="mt">{% if p.url %}<a href="{{ p.url }}" target="_blank" rel="noopener">{{ (p.title or 'Untitled')[:110] }}</a>{% else %}{{ (p.title or 'Untitled')[:110] }}{% endif %}</div>
+      <div class="mm">{{ origin(p.source_id) }} {{ p.publisher }} · {{ (p.published_at or '')[:10] }} · {{ fmt(p.likes) }} likes · {{ fmt(p.comments) }} comments{% if p.views is not none %} · {{ fmt(p.views) }} views{% endif %}</div></div>
+    {% else %}<p class="muted">Posts appear here once YouTube or Instagram is connected for this {{ e.kind }}.</p>{% endfor %}
+  </section>
+</div>
+
+<section class="card">
+  <div class="cardhead"><h2>{{ 'Creators mentioning this brand' if e.kind=='brand' else 'Brands mentioned in posts' }}</h2><span class="muted">from collected captions and video descriptions · a lead, not proof of a deal</span></div>
+  {% for p in partners[:12] %}
+    <div class="mention"><div class="mt">{% if e.kind=='brand' %}{{ p.influencer }}{% else %}{{ p.brand }}{% endif %} — {% if p.url %}<a href="{{ p.url }}" target="_blank" rel="noopener">{{ (p.title or 'post')[:90] }}</a>{% else %}{{ (p.title or 'post')[:90] }}{% endif %}</div>
+    <div class="mm">{{ p.publisher }} · {{ (p.published_at or '')[:10] }} · matched <b>{{ p.matched }}</b> · {% if p.disclosed %}<span class="sent positive">disclosed: {{ p.disclosure }}</span>{% else %}<span class="sent negative">no disclosure found</span>{% endif %} · {{ fmt(p.likes) }} likes</div></div>
+  {% else %}<p class="muted">{{ 'No tracked creator has mentioned this brand in a collected post yet.' if e.kind=='brand' else 'No tracked brand appears in this creator’s collected posts yet.' }}</p>{% endfor %}
+  {% if e.kind=='brand' %}<p class="small"><a href="{{ url_for('campaigns_page') }}">Campaigns</a>: {% for c in brand_campaigns %}<a href="{{ url_for('campaign_detail', cid=c.id) }}">{{ c.name }}</a>{{ ', ' if not loop.last }}{% else %}<span class="muted">none yet</span>{% endfor %}</p>{% endif %}
+</section>
+
+{% if e.kind == 'brand' %}
+<section class="card">
+  <div class="cardhead"><h2>Website monitor</h2><span class="muted">{{ e.website or 'no website saved' }}</span></div>
+  {% for p in pages %}
+    <div class="mention"><div class="mt">{{ p.title or p.url }} {% if p.changed %}<span class="tag change">changed</span>{% else %}<span class="tag">first snapshot</span>{% endif %} {{ sample_tag(p.is_sample) }}</div>
+    <div class="mm">{{ p.collected_at[:16]|replace('T',' ') }} · prices seen: {{ json.loads(p.prices or '[]')[:8]|join(', ') or 'none' }}</div></div>
+  {% else %}<p class="muted">No snapshots yet.</p>{% endfor %}
+</section>
+{% endif %}
+
+<div class="grid2">
+  <section class="card">
+    <h2>Accounts</h2>
+    <table class="tbl"><tbody>
+    {% for a in accounts %}<tr><td><span class="plat {{ a.platform }}">{{ a.platform }}</span></td><td>{% if a.url %}<a href="{{ a.url }}" target="_blank" rel="noopener">{{ a.handle }}</a>{% else %}{{ a.handle }}{% endif %}</td>
+      <td class="muted">{{ 'resolved' if a.external_id else '' }}</td>
+      <td><form method="post" action="{{ url_for('account_delete', aid=a.id) }}" class="inline">{{ csrf() }}<button class="link">remove</button></form></td></tr>
+    {% else %}<tr><td class="muted">No accounts saved.</td></tr>{% endfor %}
+    </tbody></table>
+    <form method="post" action="{{ url_for('account_add', eid=e.id) }}" class="form row">{{ csrf() }}
+      <select name="platform">{% for p in platforms %}<option value="{{ p }}">{{ p|plat }}</option>{% endfor %}</select>
+      <input name="handle" placeholder="@handle or profile link" required maxlength="200"><button class="btn">Add</button>
+    </form>
+  </section>
+  <section class="card">
+    <h2>Record a number manually</h2>
+    {% if e.is_sample %}<p class="muted small">This is a fictional SAMPLE entry, so real numbers can't be recorded here.</p>{% else %}
+    <p class="muted small">For any platform without a free API (e.g. TikTok). Use the date you saw the number. It is saved and shown as <span class="origin manual">MANUAL</span>.</p>{% endif %}
+    <form method="post" action="{{ url_for('manual_add', eid=e.id) }}" class="form row wrap">{{ csrf() }}
+      <select name="platform">{% for p in platforms %}<option value="{{ p }}">{{ p|plat }}</option>{% endfor %}</select>
+      <select name="metric">{% for m in metrics %}<option value="{{ m }}">{{ m|replace('_',' ') }}</option>{% endfor %}</select>
+      <input name="value" placeholder="value" required inputmode="decimal" class="valuebox">
+      <input name="observed_on" type="date" value="{{ today }}" max="{{ today }}"><button class="btn">Save</button>
+    </form>
+  </section>
+</div>
+
+<div class="grid2">
+  <section class="card">
+    <div class="cardhead"><h2>Reports</h2><a href="{{ url_for('reports') }}">All reports</a></div>
+    <form method="post" action="{{ url_for('report_create') }}" class="form row wrap">{{ csrf() }}
+      <input type="hidden" name="entity_id" value="{{ e.id }}">
+      <select name="days"><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="90">Last 90 days</option></select>
+      <select name="engine">{% for g in engines %}<option value="{{ g.id }}" {{ 'disabled' if not g.available }}>{{ g.name }}{{ '' if g.available else ' — ' ~ g.note }}</option>{% endfor %}</select>
+      <button class="btn primary">Generate report</button>
+    </form>
+    {% for r in reports %}<div class="mention"><a href="{{ url_for('report_view', rid=r.id) }}">{{ r.title }}</a><div class="mm">{{ r.generated_at[:16]|replace('T',' ') }} · {{ r.engine }}</div></div>{% endfor %}
+  </section>
+  <section class="card">
+    <div class="cardhead"><h2>Collection log</h2><a href="{{ url_for('entity_export', eid=e.id) }}">Export all data (CSV)</a></div>
+    <table class="tbl small"><thead><tr><th>When</th><th>Source</th><th>Status</th><th class="num">New</th><th>Note</th></tr></thead><tbody>
+    {% for r in runs %}<tr><td>{{ ago(r.started_at) }}</td><td>{{ r.sname }}</td><td>{{ status(r.status) }}</td><td class="num">{{ r.items_new }}</td><td class="muted clip" title="{{ r.message or '' }}">{{ (r.message or '')[:90] }}</td></tr>
+    {% else %}<tr><td colspan="5" class="muted">Not collected yet.</td></tr>{% endfor %}
+    </tbody></table>
+  </section>
+</div>
+
+<section class="card">
+  <details><summary>Edit details</summary>
+  <form method="post" action="{{ url_for('entity_edit', eid=e.id) }}" class="form grid-form">{{ csrf() }}
+    <label>Country<input name="country" maxlength="2" value="{{ e.country or '' }}"></label>
+    <label>{{ 'Industry' if e.kind=='brand' else 'Niche' }}<input name="category" maxlength="80" value="{{ e.category or '' }}"></label>
+    <label>Website<input name="website" maxlength="300" value="{{ e.website or '' }}"></label>
+    <label>Refresh every (hours)<input name="refresh_hours" type="number" min="1" max="720" value="{{ e.refresh_hours }}"></label>
+    <label class="wide">Extra search terms<input name="keywords" value="{{ keywords|join(', ') }}"></label>
+    <label class="wide">Notes<textarea name="notes" rows="2">{{ e.notes or '' }}</textarea></label>
+    <div class="wide"><button class="btn">Save changes</button></div>
+  </form>
+  <form method="post" action="{{ url_for('entity_delete', eid=e.id) }}" class="inline" data-confirm="Stop tracking {{ e.name }} and delete all its stored data?">{{ csrf() }}<button class="btn danger">Stop tracking and delete data</button></form>
+  </details>
+</section>
+{% endblock %}

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}Topics{% endblock %}
+{% block crumbs %}<h1>Topic listening</h1>{% endblock %}
+{% block actions %}<form method="post" action="{{ url_for('topics_scan') }}" class="inline">{{ csrf() }}<button class="btn primary" {{ 'disabled' if job=='running' }}>{{ 'Scanning…' if job=='running' else 'Scan news now' }}</button></form>{% endblock %}
+{% block content %}
+{% if job=='running' %}<div class="flash info" data-poll="{{ url_for('job_key', key='topics') }}">Scanning every enabled news feed… this page refreshes when done.</div>
+{% elif job and job.startswith('error') %}<div class="flash error">{{ job }}</div>{% endif %}
+<p class="kpinote">Follow an industry, a trend or a hashtag across all your news feeds — not just one brand. Topics are also scanned every time scheduled collection runs.</p>
+<section class="card flush"><table class="tbl">
+<thead><tr><th>Topic</th><th>Keywords</th><th class="num">Stories (all time)</th><th class="num">This week</th><th class="num">Last week</th><th>Latest</th></tr></thead><tbody>
+{% for t in rows %}<tr><td><a href="{{ url_for('topic_detail', tid=t.id) }}"><strong>{{ t.name }}</strong></a></td>
+<td class="muted clip">{{ json.loads(t.keywords)|join(', ') }}</td><td class="num">{{ t.n }}</td><td class="num">{{ t.this_week }}</td><td class="num">{{ t.last_week }}</td><td>{{ (t.latest or '')[:10] or '—' }}</td></tr>
+{% else %}<tr><td colspan="6" class="muted pad">No topics yet.</td></tr>{% endfor %}
+</tbody></table></section>
+<section class="card"><h2>New topic</h2>
+<form method="post" action="{{ url_for('topic_create') }}" class="form grid-form">{{ csrf() }}
+<label>Name<input name="name" required maxlength="80" placeholder="e.g. Nigerian fintech"></label>
+<label>Country (optional)<input name="country" maxlength="2" placeholder="NG"></label>
+<label class="wide">Keywords or hashtags (comma separated — a story matches if any appears)<input name="keywords" placeholder="fintech, mobile money, POS, digital bank"></label>
+<div class="wide"><button class="btn primary">Save topic</button></div></form></section>
+{% endblock %}

@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% from "_macros.html" import sentiment, sample_tag, period_tabs, source_label, origin %}
+{% block title %}Overview{% endblock %}
+{% block crumbs %}<h1>Overview</h1>{% endblock %}
+{% block actions %}{{ period_tabs(days, 'overview') }}{% endblock %}
+{% block content %}
+<p class="kpinote">Headline numbers count <strong>real data only</strong>{% if sample_counts %} — {{ sample_counts.get('brand',0) }} sample brands and {{ sample_counts.get('influencer',0) }} sample influencers are excluded{% endif %}.</p>
+<section class="kpis">
+  <a class="kpi" href="{{ url_for('brands') }}"><span>Brands monitored</span><strong>{{ brands|length }}</strong></a>
+  <a class="kpi" href="{{ url_for('influencers') }}"><span>Influencers monitored</span><strong>{{ infl|length }}</strong></a>
+  <a class="kpi" href="{{ url_for('competitors') }}"><span>Competitors tracked</span><strong>{{ competitors }}</strong></a>
+  <a class="kpi" href="{{ url_for('listening', days=days) }}"><span>Mentions, last {{ days }} days</span><strong>{{ fmt(mentions) }}</strong></a>
+  <div class="kpi"><span>Net sentiment</span><strong class="{{ 'up' if net and net > 0 else 'down' if net and net < 0 }}">{{ ('%+d'|format(net)) if net is not none else '—' }}</strong>
+    <small>{{ s.get('positive',0) }} pos · {{ s.get('neutral',0) }} neu · {{ s.get('negative',0) }} neg</small></div>
+</section>
+
+{% if not brands and not infl %}
+<section class="card empty-state">
+  <h2>Start by tracking something real</h2>
+  <p>Add a brand (yours, a client's, or a competitor) or an influencer. Free sources start working immediately: news feeds and the brand's website. YouTube and Instagram need a free key — see <a href="{{ url_for('sources') }}">Data sources</a>.</p>
+  <p><a class="btn primary" href="{{ url_for('brands') }}">Add a brand</a> <a class="btn" href="{{ url_for('influencers') }}">Add an influencer</a></p>
+  <p class="muted">Want to see how it looks first? Run <code>python manage.py seed-sample</code> for clearly-labelled demo data.</p>
+</section>
+{% endif %}
+
+<div class="grid2">
+  <section class="card">
+    <div class="cardhead"><h2>Mention volume</h2><span class="muted">all tracked, per day</span></div>
+    {{ trend_chart }}
+  </section>
+  <section class="card">
+    <div class="cardhead"><h2>Recent alerts</h2><a href="{{ url_for('alerts') }}">All alerts</a></div>
+    {% for a in alerts %}
+      <div class="alert-row {{ a.severity }}"><span class="dot"></span><div><div>{{ a.message }} {{ sample_tag(a.is_sample) }}</div><small class="muted">{{ ago(a.created_at) }}</small></div></div>
+    {% else %}<p class="muted">No alerts yet. Alerts appear when mentions spike, sentiment drops, followers jump or a website changes.</p>{% endfor %}
+  </section>
+</div>
+
+<div class="grid2">
+  <section class="card">
+    <div class="cardhead"><h2>Trending this week</h2><span class="muted">mentions vs previous 7 days</span></div>
+    <table class="tbl"><thead><tr><th>Name</th><th class="num">This week</th><th class="num">Last week</th><th class="num">Change</th></tr></thead><tbody>
+    {% for t in trending %}<tr><td><a href="{{ url_for('entity_detail', eid=t.id) }}">{{ t.name }}</a> {{ sample_tag(t.is_sample) }}</td><td class="num">{{ t.this_week }}</td><td class="num">{{ t.last_week }}</td><td class="num {{ 'up' if t.delta>0 else 'down' if t.delta<0 }}">{{ '%+d'|format(t.delta) }}</td></tr>
+    {% else %}<tr><td colspan="4" class="muted">No mentions collected yet.</td></tr>{% endfor %}
+    </tbody></table>
+  </section>
+  <section class="card">
+    <div class="cardhead"><h2>Influencer engagement</h2><a href="{{ url_for('influencers') }}">All influencers</a></div>
+    <table class="tbl"><thead><tr><th>Creator</th><th class="num">Followers</th><th class="num">Engagement</th></tr></thead><tbody>
+    {% for i in top_infl %}<tr><td><a href="{{ url_for('entity_detail', eid=i.id) }}">{{ i.name }}</a> {{ sample_tag(i.is_sample) }}</td><td class="num">{{ fmt(i.followers) }}</td><td class="num">{{ ('%.2f%%'|format(i.er)) if i.er is not none else '—' }}</td></tr>
+    {% else %}<tr><td colspan="3" class="muted">No influencers tracked yet.</td></tr>{% endfor %}
+    </tbody></table>
+  </section>
+</div>
+
+<div class="grid2">
+  <section class="card">
+    <div class="cardhead"><h2>Latest mentions</h2><a href="{{ url_for('listening') }}">Social listening</a></div>
+    {% for m in latest %}
+      <div class="mention"><div class="mt">{% if m.url %}<a href="{{ m.url }}" target="_blank" rel="noopener">{{ m.title }}</a>{% else %}{{ m.title }}{% endif %} {{ sample_tag(m.is_sample) }}</div>
+      <div class="mm">{{ origin(m.source_id) }} {{ m.ename }} · {{ m.publisher or '' }} · {{ (m.published_at or '')[:10] }} · {{ sentiment(m.sentiment_label, m.sentiment_score) }}</div></div>
+    {% else %}<p class="muted">Nothing yet.</p>{% endfor %}
+  </section>
+  <section class="card">
+    <div class="cardhead"><h2>Data freshness</h2><a href="{{ url_for('sources') }}">Manage sources</a></div>
+    <table class="tbl"><thead><tr><th>Source</th><th>Cost</th><th>Last successful collection</th></tr></thead><tbody>
+    {% for f in freshness %}<tr><td>{{ f.name }}</td><td><span class="tier {{ f.cost_tier }}">{{ f.cost_tier|replace('_',' ') }}</span></td>
+      <td>{% if not f.enabled %}<span class="muted">switched off</span>{% elif f.last_ok %}{{ ago(f.last_ok) }}{% else %}<span class="muted">never</span>{% endif %}</td></tr>{% endfor %}
+    </tbody></table>
+  </section>
+</div>
+{% endblock %}

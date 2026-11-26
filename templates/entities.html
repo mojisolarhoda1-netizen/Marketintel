@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% from "_macros.html" import sample_tag, csrf %}
+{% set label = 'Brands' if kind=='brand' else 'Influencers' %}
+{% block title %}{{ label }}{% endblock %}
+{% block crumbs %}<h1>{{ label }}</h1>{% endblock %}
+{% block actions %}<a href="#add" class="btn primary">+ Add {{ kind }}</a>{% endblock %}
+{% block content %}
+<form class="filters" method="get">
+  <input name="q" placeholder="Search name or {{ 'industry' if kind=='brand' else 'niche' }}" value="{{ args.get('q','') }}">
+  <select name="country"><option value="">All countries</option>{% for c in countries %}<option {{ 'selected' if args.get('country')==c }}>{{ c }}</option>{% endfor %}</select>
+  <select name="category"><option value="">All {{ 'industries' if kind=='brand' else 'niches' }}</option>{% for c in cats %}<option {{ 'selected' if args.get('category')==c }}>{{ c }}</option>{% endfor %}</select>
+  <select name="platform"><option value="">All platforms</option>{% for p in platforms %}<option value="{{ p }}" {{ 'selected' if args.get('platform')==p }}>{{ p|plat }}</option>{% endfor %}</select>
+  <button class="btn">Filter</button>{% if args %}<a href="?" class="muted">Clear</a>{% endif %}
+</form>
+
+{% if kind=='influencer' %}<form method="get" action="{{ url_for('influencer_compare') }}" id="cmpform">{% endif %}
+<section class="card flush">
+<table class="tbl">
+  <thead><tr>{% if kind=='influencer' %}<th title="tick 2–4 to compare"></th>{% endif %}<th>Name</th><th>{{ 'Industry' if kind=='brand' else 'Niche' }}</th><th>Country</th><th>Platforms</th><th class="num">Followers (all)</th>{% if kind=='influencer' %}<th class="num">Engagement</th>{% endif %}<th class="num">Mentions 30d</th><th>Net sentiment</th><th>Last collected</th></tr></thead>
+  <tbody>
+  {% for e in items %}
+    <tr>
+      {% if kind=='influencer' %}<td><input type="checkbox" name="ids" value="{{ e.id }}" aria-label="compare"></td>{% endif %}
+      <td><a href="{{ url_for('entity_detail', eid=e.id) }}"><strong>{{ e.name }}</strong></a> {{ sample_tag(e.is_sample) }}</td>
+      <td>{{ e.category or '—' }}</td><td>{{ e.country or '—' }}</td>
+      <td>{% for p in e.platforms %}<span class="plat {{ p }}">{{ p }}</span>{% else %}<span class="muted">none</span>{% endfor %}</td>
+      <td class="num">{{ fmt(e.followers) }}</td>
+      {% if kind=='influencer' %}<td class="num">{{ ('%.2f%%'|format(e.er)) if e.er is not none else '—' }}</td>{% endif %}
+      <td class="num">{{ e.sent.count }}</td>
+      <td>{% if e.sent.net is not none %}<span class="{{ 'up' if e.sent.net>0 else 'down' if e.sent.net<0 }}">{{ '%+d'|format(e.sent.net) }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td>{% if e.is_sample %}<span class="muted">sample</span>{% else %}{{ ago(e.last_ok) }}{% endif %}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="9" class="muted pad">No {{ label|lower }} yet{{ ' match these filters' if args }}. Add one below.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</section>
+{% if kind=='influencer' and items|length >= 2 %}<p><button class="btn">Compare ticked creators</button> <span class="muted small">Tick 2 to 4.</span></p>{% endif %}
+{% if kind=='influencer' %}</form>{% endif %}
+
+<section class="card" id="add">
+  <h2>Add {{ kind }}</h2>
+  <form method="post" action="{{ url_for('entity_create') }}" class="form grid-form">
+    {{ csrf() }}<input type="hidden" name="kind" value="{{ kind }}">
+    <label>Name<input name="name" required maxlength="120" placeholder="{{ 'e.g. Moniepoint' if kind=='brand' else 'e.g. creator name' }}"></label>
+    <label>Country (2 letters)<input name="country" maxlength="2" value="NG"></label>
+    <label>{{ 'Industry' if kind=='brand' else 'Niche' }}<input name="category" maxlength="80" placeholder="{{ 'e.g. Fintech' if kind=='brand' else 'e.g. Fashion' }}"></label>
+    {% if kind=='brand' %}<label>Website<input name="website" maxlength="300" placeholder="example.com"></label>{% endif %}
+    <label class="wide">Extra search terms (comma separated)<input name="keywords" placeholder="product names, short names, hashtags"></label>
+    <label>Instagram handle<input name="handle_instagram" placeholder="@handle (professional accounts)"></label>
+    <label>YouTube handle or channel ID<input name="handle_youtube" placeholder="@channel"></label>
+    <label>TikTok handle<input name="handle_tiktok" placeholder="@handle (manual numbers for now)"></label>
+    <label>X handle<input name="handle_x" placeholder="@handle (postponed)"></label>
+    <label>Refresh every (hours)<input name="refresh_hours" type="number" min="1" max="720" value="24"></label>
+    <label class="wide">Notes<textarea name="notes" rows="2" maxlength="2000"></textarea></label>
+    <div class="wide"><button class="btn primary">Start tracking</button></div>
+  </form>
+</section>
+{% endblock %}

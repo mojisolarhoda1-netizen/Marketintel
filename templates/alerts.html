@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, sample_tag %}
+{% block title %}Alerts{% endblock %}
+{% block crumbs %}<h1>Alerts</h1>{% endblock %}
+{% block actions %}<form method="post" action="{{ url_for('alerts_read') }}" class="inline">{{ csrf() }}<button class="btn">Mark all read</button></form>{% endblock %}
+{% block content %}
+<section class="card">
+{% for a in rows %}
+  <div class="alert-row {{ a.severity }} {{ 'unread' if not a.is_read }}"><span class="dot"></span>
+  <div><div>{{ a.message }} {{ sample_tag(a.is_sample) }}</div>
+  <small class="muted">{{ a.kind|replace('_',' ') }} · {{ a.created_at[:16]|replace('T',' ') }}{% if a.entity_id %} · <a href="{{ url_for('entity_detail', eid=a.entity_id) }}">{{ a.ename }}</a>{% endif %}</small></div></div>
+{% else %}<p class="muted">No alerts yet.</p>{% endfor %}
+</section>
+<p class="muted small">Rules: mention spike (today far above the 29-day average), sentiment drop (last 7 days vs the 21 before), follower jump (10%+ a day between snapshots), website change, and source failures.</p>
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, sample_tag, period_tabs %}
+{% block title %}{{ w.name }}{% endblock %}
+{% block crumbs %}<a href="{{ url_for('watchlists') }}" class="muted">Client watchlists</a> / <h1>{{ w.name }}</h1>{% endblock %}
+{% block actions %}{{ period_tabs(days, 'watchlist_detail', {'wid': w.id}) }}
+<a class="btn" href="{{ url_for('ask_page') }}">Ask about this group</a>{% endblock %}
+{% block content %}
+{% if w.notes %}<p class="kpinote">{{ w.notes }}</p>{% endif %}
+<section class="card flush"><table class="tbl">
+<thead><tr><th>Name</th><th>Type</th><th class="num">Followers (all)</th><th class="num">Engagement</th><th class="num">Mentions {{ days }}d</th><th>Net sentiment</th><th class="num">Unread alerts</th><th></th></tr></thead><tbody>
+{% for e in rows %}<tr><td><a href="{{ url_for('entity_detail', eid=e.id) }}"><strong>{{ e.name }}</strong></a> {{ sample_tag(e.is_sample) }}</td>
+<td>{{ e.kind }}</td><td class="num">{{ fmt(e.followers) }}</td><td class="num">{{ ('%.2f%%'|format(e.er)) if e.er is not none else '—' }}</td>
+<td class="num">{{ e.mentions }}</td><td>{% if e.sent.net is not none %}<span class="{{ 'up' if e.sent.net>0 else 'down' if e.sent.net<0 }}">{{ '%+d'|format(e.sent.net) }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+<td class="num">{{ e.alerts or '' }}</td>
+<td><form method="post" action="{{ url_for('watchlist_remove', wid=w.id, eid=e.id) }}" class="inline">{{ csrf() }}<button class="link">remove</button></form></td></tr>
+{% else %}<tr><td colspan="8" class="muted pad">Empty. Add brands and creators below.</td></tr>{% endfor %}
+</tbody></table></section>
+{% set creators = rows|selectattr('kind','equalto','influencer')|list %}
+{% if creators|length >= 2 %}<p><a class="btn" href="{{ url_for('influencer_compare', id_list=(creators[:4]|map(attribute='id')|join(','))) }}">Compare these creators</a></p>{% endif %}
+<div class="grid2">
+<section class="card"><h2>Add to this watchlist</h2>
+{% if others %}<form method="post" action="{{ url_for('watchlist_add', wid=w.id) }}" class="form">{{ csrf() }}
+<select name="entity_id" multiple size="8" style="width:100%">{% for o in others %}<option value="{{ o.id }}">{{ o.name }} ({{ o.kind }})</option>{% endfor %}</select>
+<p class="muted small">Hold Ctrl to pick several.</p><button class="btn primary">Add selected</button></form>
+{% else %}<p class="muted">Everything you track is already in this list.</p>{% endif %}</section>
+<section class="card"><h2>Scheduled reports for this client</h2>
+{% for s in scheds %}<div class="mention">{{ s.frequency|title }} · last run {{ ago(s.last_run) }}</div>{% else %}<p class="muted">None yet.</p>{% endfor %}
+<form method="post" action="{{ url_for('schedule_create') }}" class="form row">{{ csrf() }}<input type="hidden" name="target" value="w:{{ w.id }}">
+<select name="frequency"><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select><button class="btn">Schedule</button></form>
+<p class="muted small">One PDF + CSV per real brand/creator, saved in <code>data/reports/</code> when collection runs.</p>
+<form method="post" action="{{ url_for('watchlist_delete', wid=w.id) }}" class="inline" data-confirm="Delete this watchlist? The brands and creators stay tracked.">{{ csrf() }}<button class="btn danger">Delete watchlist</button></form>
+</section></div>
+{% endblock %}

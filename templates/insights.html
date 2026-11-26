@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% from "_macros.html" import sample_tag %}
+{% block title %}Opportunities{% endblock %}
+{% block crumbs %}<h1>Opportunities</h1>{% endblock %}
+{% block content %}
+<p class="kpinote">Things in your data worth acting on, found by fixed rules. Each shows the numbers behind it.</p>
+{% set labels = {'competitor_weakness':'Competitor weakness','price_change':'Competitor price / site change','share_drop':'Share of voice falling','rising_creator':'Rising creator','topic_rising':'Trending topic','disclosure_risk':'Disclosure risk'} %}
+{% for i in items %}
+<section class="card opp {{ i.kind }}"><div class="cardhead"><h2>{{ i.title }} {% if i.entity %}{{ sample_tag(i.entity.is_sample) }}{% endif %}</h2><span class="tag">{{ labels.get(i.kind, i.kind) }}</span></div>
+<p>{{ i.detail }}</p>{% if i.entity %}<a href="{{ url_for('entity_detail', eid=i.entity.id) }}">Open {{ i.entity.name }} →</a>{% endif %}</section>
+{% else %}
+<section class="card empty-state"><h2>Nothing to flag yet</h2><p>Opportunities appear as data builds up: competitors with negative coverage, competitor website or price changes, falling share of voice, fast-growing creators, trending topics and undisclosed sponsored posts.</p></section>
+{% endfor %}
+<p class="muted small">Rules: competitor negative stories outnumber positive (7 days, min 3) · competitor website changed (30 days) · your share of mentions fell 15+ points week on week · creator followers +10% in 30 days · topic stories doubled week on week (min 5) · creator post mentions a brand without #ad/sponsorship wording.</p>
+{% endblock %}
