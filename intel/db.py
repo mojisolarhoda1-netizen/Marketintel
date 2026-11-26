@@ -66,7 +66,7 @@ DEFAULT_SOURCES = [
      "Needs a free Meta developer app, your Instagram professional account and a token. Reads other "
      "public Business/Creator accounts."),
     ("google_news", "Google News search RSS", "free",
-     "Off by default: review Google's terms before any commercial use."),
+     "Searches Google News for each brand by name. Turn off on this page if you prefer."),
     ("tiktok", "TikTok", "unavailable",
      "Research API is closed to commercial companies; Login Kit needs an approved app. Postponed."),
     ("x", "X (Twitter) API", "paid", "Pay-per-use credits. Postponed until a customer needs X data."),
@@ -138,7 +138,7 @@ def _seed_defaults(conn: sqlite3.Connection) -> None:
         conn.execute(
             "INSERT INTO data_sources(id,name,cost_tier,notes,enabled) VALUES (?,?,?,?,?) "
             "ON CONFLICT(id) DO UPDATE SET name=excluded.name, cost_tier=excluded.cost_tier, notes=excluded.notes",
-            (sid, name, tier, notes, 0 if sid == "google_news" else 1),
+            (sid, name, tier, notes, 1),
         )
     for name, url, country, verified in DEFAULT_FEEDS:
         conn.execute(

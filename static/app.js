@@ -26,4 +26,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }));
   // Auto-submit selects.
   document.querySelectorAll("select[data-autosubmit]").forEach(s => s.addEventListener("change", () => s.form.submit()));
+  // Show a "working" message on slow searches so it never looks frozen.
+  document.querySelectorAll("form[data-loading]").forEach(f => f.addEventListener("submit", () => {
+    const b = f.querySelector("button.primary"); if (b) { b.disabled = true; b.textContent = f.dataset.loading; }
+  }));
 });

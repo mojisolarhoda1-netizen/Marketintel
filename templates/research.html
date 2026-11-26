@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}Research{% endblock %}
+{% block crumbs %}<h1>Research any brand</h1>{% endblock %}
+{% block content %}
+<section class="card">
+<form method="get" class="form" data-loading="Searching the web… this takes 5–15 seconds">
+  <label class="small muted">Brand, product or topic</label>
+  <input name="q" value="{{ q }}" placeholder="e.g. Indomie, Moniepoint, Glo, Shoprite Nigeria" required style="width:100%">
+  <label class="small muted">Competitors (optional, separate with commas, up to 4)</label>
+  <input name="vs" value="{{ vs }}" placeholder="e.g. Golden Penny Noodles, Mimee" style="width:100%">
+  <div class="form row wrap"><select name="country">{% for cc, n in [('NG','Nigeria'),('GH','Ghana'),('KE','Kenya'),('ZA','South Africa'),('GB','UK'),('US','USA')] %}<option value="{{ cc }}" {{ 'selected' if country==cc }}>{{ n }}</option>{% endfor %}</select>
+  <button class="btn primary">Search now</button></div>
+</form>
+<p class="muted small">Searches live: news &amp; blogs (Google News), what people type into Google, and Wikipedia interest. Nothing is made up — if a source has nothing, it says so.</p>
+</section>
+
+{% if r %}
+{% set m = r.main %}
+{% if m.error %}<div class="flash error">{{ m.error }}</div>{% endif %}
+
+<section class="kpis">
+  <div class="kpi"><div class="muted small">Stories, last 7 days</div><strong>{{ m.n7 }}</strong></div>
+  <div class="kpi"><div class="muted small">Stories, last 30 days</div><strong>{{ m.n30 }}</strong></div>
+  <div class="kpi"><div class="muted small">Positive / negative</div><strong><span class="up">{{ m.pos_pct }}%</span> / <span class="down">{{ m.neg_pct }}%</span></strong></div>
+  <div class="kpi"><div class="muted small">Search interest (Wikipedia)</div><strong>{% if m.wiki %}{{ fmt(m.wiki.last30) }}{% if m.wiki.change is not none %} <small class="{{ 'up' if m.wiki.change>0 else 'down' }}">{{ '%+d'|format(m.wiki.change) }}%</small>{% endif %}{% else %}<span class="muted">—</span>{% endif %}</strong>{% if m.wiki %}<div class="muted small">“{{ m.wiki.title }}”, 30 days</div>{% endif %}</div>
+</section>
+
+<section class="card">
+<h2>What to do next</h2>
+{% for t in r.advice %}
+<div class="opp"><strong>{{ t.title }}</strong><div class="muted small">Why: {{ t.why }}</div><div>👉 {{ t.action }}</div></div>
+{% else %}<p class="muted">Not enough coverage yet to suggest moves. Add competitors above to compare.</p>{% endfor %}
+<p class="muted small">Advice is rule-based from the numbers on this page, not AI guesses. Each tip shows the numbers behind it.</p>
+</section>
+
+<section class="card">
+<h2>Content ideas that could travel</h2>
+<ol>{% for i in r.ideas %}<li>{{ i }}</li>{% endfor %}</ol>
+</section>
+
+{% if r.competitors %}
+<section class="card flush">
+<div class="cardhead"><h2>You vs competitors (last 30 days)</h2></div>
+<table class="tbl">
+<thead><tr><th>Brand</th><th class="num">Stories</th><th>Share of voice</th><th>Positive</th><th>Negative</th><th>Talked about for</th></tr></thead>
+<tbody>{% for p in r.all %}
+<tr class="{{ 'mainrow' if loop.first }}"><td><strong>{{ p.name }}</strong>{% if loop.first %} <span class="tag">you</span>{% endif %}</td>
+<td class="num">{{ p.n30 }}</td>
+<td><div class="meter"><span style="width:{{ p.share }}%"></span></div> {{ p.share }}%</td>
+<td class="up">{{ p.pos_pct }}%</td><td class="down">{{ p.neg_pct }}%</td>
+<td class="clip">{{ p.themes[:5]|join(', ') or '—' }}</td></tr>
+{% endfor %}</tbody></table>
+</section>
+{% endif %}
+
+<section class="grid2">
+<section class="card">
+<h2>What people search on Google</h2>
+{% for s in r.suggestions %}<span class="kw">{{ s }}</span> {% else %}<p class="muted">No suggestions came back for this name.</p>{% endfor %}
+</section>
+<section class="card">
+<h2>What the coverage is about</h2>
+{% for w in m.themes %}<span class="kw">{{ w }}</span> {% else %}<p class="muted">Not enough stories to see themes.</p>{% endfor %}
+{% if m.publishers %}<p class="muted small">Most coverage from: {{ m.publishers|join(', ') }}</p>{% endif %}
+</section>
+</section>
+
+{% if m.negative %}
+<section class="card"><h2>Negative stories to watch</h2>
+{% for a in m.negative %}<div class="mention"><a href="{{ a.url }}" target="_blank" rel="noopener">{{ a.title }}</a> <small class="muted">· {{ a.publisher }} · {{ (a.published or '')[:10] }}</small></div>{% endfor %}
+</section>
+{% endif %}
+
+<section class="card"><h2>Latest stories about {{ m.name }}</h2>
+{% for a in m.latest %}<div class="mention"><span class="sent {{ a.sentiment }}">{{ a.sentiment }}</span> <a href="{{ a.url }}" target="_blank" rel="noopener">{{ a.title }}</a> <small class="muted">· {{ a.publisher }} · {{ (a.published or '')[:10] }}</small></div>
+{% else %}<p class="muted">No news or blog stories found for “{{ m.name }}”. Try the full brand name (e.g. “MTN Nigeria”).</p>{% endfor %}
+</section>
+
+<section class="card">
+<h2>Keep watching these brands</h2>
+<p>Track them so the app checks every day and builds history, charts and reports.</p>
+<form method="post" action="{{ url_for('research_track') }}" class="inline">{{ csrf() }}
+<input type="hidden" name="q" value="{{ r.query }}"><input type="hidden" name="vs" value="{{ vs }}"><input type="hidden" name="country" value="{{ country }}">
+<button class="btn primary">Track {{ r.query }}{% if r.competitors %} + {{ r.competitors|length }} competitor(s){% endif %}</button></form>
+<p class="muted small">Searched {{ r.when }}.</p>
+</section>
+{% endif %}
+{% endblock %}

@@ -1096,6 +1096,45 @@ def create_app(db_file: str | None = None, http_get=None) -> Flask:
         return redirect(url_for("reports") + "#schedules")
 
     # ---------- ask your data ----------
+    @app.route("/research")
+    def research_page():
+        from intel import research as rs
+        q = request.args.get("q", "").strip()
+        vs = [v for v in re.split(r"[,\n]", request.args.get("vs", "")) if v.strip()]
+        country = (request.args.get("country") or "NG").upper()[:2]
+        r = rs.run(q, vs, country, app.config.get("HTTP_GET")) if q else None
+        return render_template("research.html", r=r, q=q, vs=", ".join(v.strip() for v in vs), country=country)
+
+    @app.route("/research/track", methods=["POST"])
+    def research_track():
+        """Start tracking the searched brand and its competitors in one tap."""
+        c = db()
+        names = [request.form.get("q", "").strip()] + \
+                [v.strip() for v in request.form.get("vs", "").split(",") if v.strip()]
+        country = request.form.get("country", "NG")
+        existing = {e["name"].lower(): e["id"] for e in repo.list_entities(c, include_sample=False)}
+        ids = []
+        try:
+            for n in names[:5]:
+                if not n:
+                    continue
+                ids.append(existing.get(n.lower()) or repo.create_entity(c, "brand", n, country))
+            if not ids:
+                raise repo.ValidationError("Type a brand name first.")
+            for cid in ids[1:]:
+                repo.link_competitor(c, ids[0], cid)
+            c.commit()
+        except repo.ValidationError as e:
+            c.rollback()
+            return form_error(e, url_for("research_page"))
+        for eid in ids:
+            if app.config.get("SYNC_JOBS"):
+                _collect_bg(eid)
+            else:
+                threading.Thread(target=_collect_bg, args=(eid,), daemon=True).start()
+        flash(f"Now tracking {len(ids)} brand(s). They'll update every day by themselves.", "ok")
+        return redirect(url_for("entity_detail", eid=ids[0]))
+
     @app.route("/ask", methods=["GET", "POST"])
     def ask_page():
         c = db()

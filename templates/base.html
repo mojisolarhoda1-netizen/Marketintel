@@ -14,6 +14,7 @@
   <div class="brandmark"><span class="logo">MI</span><div><strong>Market Intel</strong><small>Africa · working name</small></div></div>
   <nav>
     <a href="{{ url_for('overview') }}" class="{{ 'on' if nav=='overview' }}">Overview</a>
+    <a href="{{ url_for('research_page') }}" class="{{ 'on' if nav=='research_page' }}">🔎 Research</a>
     <div class="navlabel">Monitor</div>
     <a href="{{ url_for('brands') }}" class="{{ 'on' if nav=='brands' }}">Brands</a>
     <a href="{{ url_for('influencers') }}" class="{{ 'on' if nav in ('influencers','influencer_compare') }}">Influencers</a>

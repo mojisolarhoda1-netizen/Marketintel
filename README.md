@@ -88,3 +88,15 @@ migrations/             database schema
 templates/, static/     screens
 tests/                  automated tests and recorded fixtures
 ```
+
+## Research page (new)
+Menu → **🔎 Research**. Type any brand (plus up to 4 competitors) and tap **Search now**. In 5–15 seconds it shows, live:
+- news and blog stories (Google News search), with positive/negative tone
+- what people type into Google about the brand (public autocomplete — unofficial, may stop working; the page still works without it)
+- Wikipedia interest, last 30 days vs the 30 before
+- you vs competitors: stories, share of voice, tone, what each is talked about for
+- "What to do next" tips and content ideas — rule-based, each showing the numbers behind it
+- **Track** button: saves the brand and competitors so they're checked daily.
+
+Google News search is now **on** by default for tracked brands (migration 004). Turn it off on Data sources if you prefer.
+Instagram followers still need the free Meta connection (see docs/DATA_SOURCES.md) or manual entry.
