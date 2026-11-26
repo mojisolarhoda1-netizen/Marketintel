@@ -276,3 +276,16 @@ def test_markdown_renderer_escapes_html():
     out = md_to_html("## Title\n- <script>alert(1)</script> **bold**\n[x](javascript:alert(1))")
     assert "<script>" not in out and "&lt;script&gt;" in out and "<strong>bold</strong>" in out
     assert 'href="javascript' not in out
+
+
+def test_migrate_survives_two_instances_starting_at_once(tmp_path):
+    from intel.db import connect, migrate
+    p = str(tmp_path / "race.db")
+    a, b = connect(p), connect(p)
+    a.execute("CREATE TABLE IF NOT EXISTS schema_migrations (version TEXT PRIMARY KEY, applied_at TEXT)")
+    a.commit()
+    migrate(a)
+    b.execute("DELETE FROM schema_migrations WHERE version LIKE '003%'")  # b thinks 003 still needs doing...
+    b.commit()
+    a.execute("INSERT OR IGNORE INTO schema_migrations(version) VALUES ('003_phase3')"); a.commit()  # ...a finishes first
+    migrate(b)   # must not crash

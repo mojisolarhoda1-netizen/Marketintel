@@ -125,7 +125,7 @@ def migrate(conn: sqlite3.Connection) -> list[str]:
         if f.stem in done:
             continue
         conn.executescript(f.read_text(encoding="utf-8"))
-        conn.execute("INSERT INTO schema_migrations(version) VALUES (?)", (f.stem,))
+        conn.execute("INSERT OR IGNORE INTO schema_migrations(version) VALUES (?)", (f.stem,))  # two instances may start at once
         applied.append(f.stem)
     if applied or not conn.execute("SELECT 1 FROM organisations LIMIT 1").fetchone():
         _seed_defaults(conn)

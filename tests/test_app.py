@@ -23,10 +23,8 @@ def client(tmp_path, monkeypatch):
         c.execute("INSERT INTO news_feeds(name,url) VALUES ('Test','https://news.example/feed/')")
         c.commit(); c.close()
     cl = app.test_client()
-    cl.get("/")
-    with cl.session_transaction() as s:
-        token = s["csrf"]
-    cl.token = token
+    html = cl.get("/").get_data(as_text=True)
+    cl.token = re.search(r'name="csrf-token" content="([0-9a-f]+)"', html).group(1)
     return cl
 
 

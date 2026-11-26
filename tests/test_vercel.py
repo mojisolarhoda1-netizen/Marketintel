@@ -38,9 +38,8 @@ def login(cl, pw="s3cret-pass"):
 
 
 def token(cl):
-    cl.get("/")
-    with cl.session_transaction() as s:
-        return s["csrf"]
+    html = cl.get("/").get_data(as_text=True)
+    return re.search(r'name="csrf-token" content="([0-9a-f]+)"', html).group(1)
 
 
 def test_everything_requires_login(online):
@@ -111,3 +110,24 @@ def test_bad_turso_token_is_explained_without_leaking_it(monkeypatch):
     monkeypatch.setattr(appmod, "create_app", boom)
     r = appmod._make_online_app().test_client().get("/")
     assert b"new token" in r.data and b"SUPER-SECRET-TOKEN" not in r.data
+
+
+def test_form_from_other_tab_still_works_after_logging_in_again(online):
+    a, _ = online
+    cl = a.test_client()
+    login(cl)
+    old = token(cl)              # a form left open in tab A
+    login(cl)                    # logged in again in tab B
+    r = cl.post("/entities", data={"_csrf": old, "kind": "brand", "name": "Tab Brand"})
+    assert r.status_code in (200, 302)
+
+
+def test_same_site_form_without_token_is_accepted_but_foreign_is_blocked(online):
+    a, _ = online
+    cl = a.test_client()
+    login(cl)
+    ok = cl.post("/entities", data={"kind": "brand", "name": "Origin Brand"},
+                 headers={"Origin": "http://localhost"})
+    assert ok.status_code in (200, 302)
+    bad = cl.post("/entities", data={"kind": "brand", "name": "Evil"}, headers={"Origin": "https://evil.example"})
+    assert bad.status_code == 400

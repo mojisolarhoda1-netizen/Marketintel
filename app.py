@@ -152,14 +152,27 @@ def create_app(db_file: str | None = None, http_get=None) -> Flask:
                         "reports": reports, "seconds": round(_t.monotonic() - start, 1)})
 
     # ---------- security: CSRF token on every form ----------
+    # The token is tied to the login, not to one page load, so it keeps working across tabs,
+    # refreshes and server restarts. A form sent from our own site (same Origin) is also accepted.
+    def _csrf_token() -> str:
+        import hashlib, hmac
+        key = str(app.config["SECRET_KEY"]).encode()
+        return hmac.new(key, ("csrf|" + str(session.get("auth", "anon"))).encode(), hashlib.sha256).hexdigest()[:32]
+
+    def _same_site_post() -> bool:
+        from urllib.parse import urlparse
+        src = request.headers.get("Origin") or request.headers.get("Referer") or ""
+        return bool(src) and urlparse(src).netloc == request.host
+
+    app.config["CSRF_TOKEN_FN"] = _csrf_token
+
     @app.before_request
     def csrf():
-        if "csrf" not in session:
-            session["csrf"] = secrets.token_hex(16)
-        if request.method == "POST" and request.endpoint != "login" and not app.config.get("TESTING_NO_CSRF"):
-            sent = request.form.get("_csrf") or request.headers.get("X-CSRF")
-            if not sent or not secrets.compare_digest(sent, session["csrf"]):
-                abort(400, "Form expired. Go back, refresh the page and try again.")
+        if request.method == "POST" and request.endpoint not in ("login", "cron_collect") \
+                and not app.config.get("TESTING_NO_CSRF"):
+            sent = request.form.get("_csrf") or request.headers.get("X-CSRF") or ""
+            if not (sent and secrets.compare_digest(sent, _csrf_token())) and not _same_site_post():
+                abort(400, "This form came from somewhere else, so it was blocked for safety. Open the page again and retry.")
 
     @app.after_request
     def headers(resp):
@@ -198,7 +211,7 @@ def create_app(db_file: str | None = None, http_get=None) -> Flask:
         c = db()
         unread = c.execute("SELECT COUNT(*) FROM alerts WHERE is_read=0").fetchone()[0]
         has_sample = c.execute("SELECT 1 FROM entities WHERE is_sample=1 LIMIT 1").fetchone() is not None
-        return {"csrf_token": session.get("csrf", ""), "unread_alerts": unread, "has_sample": has_sample,
+        return {"csrf_token": _csrf_token(), "unread_alerts": unread, "has_sample": has_sample,
                 "show_sample": g.get("show_sample", True), "nav": request.endpoint, "fmt": fmt, "ago": ago,
                 "json": json, "origin_of": origin_of, "online": on_vercel() or bool(_online_db()),
                 "signed_in": bool(session.get("auth"))}
