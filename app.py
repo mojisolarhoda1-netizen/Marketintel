@@ -22,19 +22,25 @@ from intel.config import ROOT, env, env_int, load_env, on_vercel
 
 load_env()
 
-from intel import charts, repo  # noqa: E402
-from intel.ai.engines import available_engines, claude_handoff_prompt  # noqa: E402
-from intel.analysis import authenticity  # noqa: E402
-from intel.analysis.trends import (daily_counts, iso, latest_metrics, metric_series,  # noqa: E402
-                                   sentiment_summary, share_of_voice)
-from intel.db import connect, db_path, get_setting, migrate, origin_of, platform_name, utcnow  # noqa: E402
-from intel.db import online_db as _online_db  # noqa: E402
-from intel.pipeline import Pipeline, make_quota_guard  # noqa: E402
-from intel.providers import build_providers  # noqa: E402
-from intel.exports import entity_raw_csv, report_csv  # noqa: E402
-from intel.pdf import build_pdf  # noqa: E402
-from intel.render import create_report, md_to_html  # noqa: E402
-from intel.reports import METRIC_LABELS  # noqa: E402
+_BOOT_ERROR: Exception | None = None
+try:  # if a part fails to load online, show why instead of crashing
+    from intel import charts, repo  # noqa: E402
+    from intel.ai.engines import available_engines, claude_handoff_prompt  # noqa: E402
+    from intel.analysis import authenticity  # noqa: E402
+    from intel.analysis.trends import (daily_counts, iso, latest_metrics, metric_series,  # noqa: E402
+                                       sentiment_summary, share_of_voice)
+    from intel.db import connect, db_path, get_setting, migrate, origin_of, platform_name, utcnow  # noqa: E402
+    from intel.db import online_db as _online_db  # noqa: E402
+    from intel.pipeline import Pipeline, make_quota_guard  # noqa: E402
+    from intel.providers import build_providers  # noqa: E402
+    from intel.exports import entity_raw_csv, report_csv  # noqa: E402
+    from intel.pdf import build_pdf  # noqa: E402
+    from intel.render import create_report, md_to_html  # noqa: E402
+    from intel.reports import METRIC_LABELS  # noqa: E402
+except Exception as _e:  # noqa: BLE001
+    if not on_vercel():
+        raise
+    _BOOT_ERROR = _e
 
 JOBS: dict[int, str] = {}          # entity_id -> "running" | "done" | "error: ..."
 JOBS_LOCK = threading.Lock()
@@ -1194,11 +1200,13 @@ def _setup_problem_app(err: Exception) -> Flask:
         hints.append("TURSO_DATABASE_URL should start with libsql:// (copy it again from Turso, with no spaces).")
     if "token" in str(err).lower() or "401" in str(err):
         hints.append("Turso refused the token: create a new token in Turso and paste it into TURSO_AUTH_TOKEN.")
+    if "unreachable" in str(err).lower():
+        hints.append("The database address couldn't be reached: copy TURSO_DATABASE_URL again from Turso exactly.")
     if not hints:
         hints.append("Unexpected start-up error. Send Claude the message below.")
     detail = f"{err.__class__.__name__}: {err}"
     for secret in (env("TURSO_AUTH_TOKEN"), env("APP_PASSWORD"), env("SECRET_KEY"), env("CRON_SECRET")):
-        if secret:
+        if secret and len(secret) >= 6:
             detail = detail.replace(secret, "•••")
 
     @fallback.route("/", defaults={"path": ""})
@@ -1214,6 +1222,10 @@ def _setup_problem_app(err: Exception) -> Flask:
 
 
 def _make_online_app() -> Flask:
+    if _BOOT_ERROR is not None:
+        import traceback
+        tb = "".join(traceback.format_exception(_BOOT_ERROR))[-600:]
+        return _setup_problem_app(RuntimeError(f"a part of the app failed to load: {tb}"))
     try:
         if not env("TURSO_DATABASE_URL"):
             raise RuntimeError("TURSO_DATABASE_URL is not set, so there is nowhere to save data online")
