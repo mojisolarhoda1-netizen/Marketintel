@@ -1103,7 +1103,26 @@ def create_app(db_file: str | None = None, http_get=None) -> Flask:
         vs = [v for v in re.split(r"[,\n]", request.args.get("vs", "")) if v.strip()]
         country = (request.args.get("country") or "NG").upper()[:2]
         r = rs.run(q, vs, country, app.config.get("HTTP_GET")) if q else None
-        return render_template("research.html", r=r, q=q, vs=", ".join(v.strip() for v in vs), country=country)
+        from intel.ai import strategist
+        pack = strategist.handoff_prompt(r) if r else ""
+        return render_template("research.html", r=r, q=q, vs=", ".join(v.strip() for v in vs), country=country,
+                               ai_on=strategist.available(), pack=pack)
+
+    @app.route("/research/strategy")
+    def research_strategy():
+        """AI strategy brief, loaded by the page after the main results show."""
+        from intel import research as rs
+        from intel.ai import strategist
+        from intel.render import md_to_html
+        q = request.args.get("q", "").strip()
+        vs = [v for v in re.split(r"[,\n]", request.args.get("vs", "")) if v.strip()]
+        if not q:
+            return jsonify({"error": "Type a brand first."}), 400
+        try:
+            r = rs.run(q, vs, (request.args.get("country") or "NG").upper()[:2], app.config.get("HTTP_GET"))
+            return jsonify({"html": str(md_to_html(strategist.write_strategy(r)))})
+        except Exception as e:  # noqa: BLE001
+            return jsonify({"error": str(e)}), 200
 
     @app.route("/research/track", methods=["POST"])
     def research_track():

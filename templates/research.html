@@ -18,6 +18,8 @@
 {% if r %}
 {% set m = r.main %}
 {% if m.error %}<div class="flash error">{{ m.error }}</div>{% endif %}
+{% if r.did_you_mean %}<div class="flash">Only {{ m.n30 }} stor{{ 'y' if m.n30==1 else 'ies' }} found for “{{ m.name }}”. Did you mean:
+{% for d in r.did_you_mean %}<a href="{{ url_for('research_page', q=d, vs=vs, country=country) }}"><strong>{{ d }}</strong></a>{{ ', ' if not loop.last }}{% endfor %}?</div>{% endif %}
 
 <section class="kpis">
   <div class="kpi"><div class="muted small">Stories, last 7 days</div><strong>{{ m.n7 }}</strong></div>
@@ -27,7 +29,19 @@
 </section>
 
 <section class="card">
-<h2>What to do next</h2>
+<h2>AI strategy brief</h2>
+{% if ai_on %}
+<div id="ai-strategy" class="answer" data-src="{{ url_for('research_strategy', q=r.query, vs=vs, country=country) }}"><p class="muted">Writing your strategy from the data below… (10–30 seconds)</p></div>
+{% else %}
+<p class="muted">The automatic AI strategist is off. Two free ways to get the full strategy: add a free <strong>GROQ_API_KEY</strong> in Vercel (see the guide), or tap below and paste into Claude.</p>
+{% endif %}
+<details {{ '' if ai_on else 'open' }}><summary class="small">Get this strategy from Claude instead</summary>
+<textarea id="pack" class="code" rows="6" readonly>{{ pack }}</textarea>
+<p><button class="btn" data-copy="#pack">Copy, then paste into a Claude chat</button> <span id="copied" class="muted small"></span></p></details>
+</section>
+
+<section class="card">
+<h2>Quick wins (from the numbers)</h2>
 {% for t in r.advice %}
 <div class="opp"><strong>{{ t.title }}</strong><div class="muted small">Why: {{ t.why }}</div><div>👉 {{ t.action }}</div></div>
 {% else %}<p class="muted">Not enough coverage yet to suggest moves. Add competitors above to compare.</p>{% endfor %}
@@ -52,6 +66,16 @@
 <td class="clip">{{ p.themes[:5]|join(', ') or '—' }}</td></tr>
 {% endfor %}</tbody></table>
 </section>
+{% endif %}
+
+{% if r.youtube_on %}
+<section class="card flush"><div class="cardhead"><h2>YouTube — top recent videos</h2></div>
+<table class="tbl"><thead><tr><th>Brand</th><th>Video</th><th>Channel</th><th class="num">Views</th><th>Date</th></tr></thead><tbody>
+{% for p in r.all %}{% for v in (p.youtube or [])[:5] %}<tr class="{{ 'mainrow' if loop.first and p is sameas m }}"><td>{{ p.name if loop.first }}</td><td class="clip"><a href="{{ v.url }}" target="_blank" rel="noopener">{{ v.title }}</a></td><td>{{ v.channel }}</td><td class="num">{{ fmt(v.views) if v.views is not none else '—' }}</td><td>{{ v.published[:10] }}</td></tr>
+{% else %}<tr><td>{{ p.name }}</td><td colspan="4" class="muted">No recent videos found.</td></tr>{% endfor %}{% endfor %}
+</tbody></table></section>
+{% else %}
+<section class="card"><h2>YouTube</h2><p class="muted">Off. Add a free <strong>YOUTUBE_API_KEY</strong> in Vercel to see each brand's top videos and views here — vital for shows, podcasts and creators.</p></section>
 {% endif %}
 
 <section class="grid2">

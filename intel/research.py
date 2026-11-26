@@ -71,21 +71,26 @@ def news(term: str, country: str = "NG", http_get=None) -> list[dict]:
 
 def suggestions(term: str, country: str = "NG", http_get=None) -> list[str]:
     """What people type into Google about this term (public autocomplete)."""
-    seen, out = set(), []
-    for q in (term, f"{term} ", f"is {term}", f"{term} vs", f"how to {term}"):
+    def one(q):
         try:
             r = _get(http_get, "https://suggestqueries.google.com/complete/search",
                      params={"client": "firefox", "q": q, "gl": country.lower(), "hl": "en"})
             if getattr(r, "status_code", 200) != 200:
-                continue
+                return []
             data = json.loads(r.content.decode("utf-8", "replace"))
-            for s in data[1] if len(data) > 1 else []:
-                s = str(s).strip()
-                if s and s.lower() != term.lower() and s.lower() not in seen:
-                    seen.add(s.lower())
-                    out.append(s)
+            return data[1] if len(data) > 1 else []
         except Exception:  # noqa: BLE001 - suggestions are a bonus, never break the page
-            continue
+            return []
+    seen, out = set(), []
+    qs = (term, f"{term} ", f"is {term}", f"{term} vs", f"how to {term}")
+    with ThreadPoolExecutor(max_workers=5) as ex:
+        results = list(ex.map(one, qs))
+    for res in results:
+        for s in res:
+            s = str(s).strip()
+            if s and s.lower() != term.lower() and s.lower() not in seen:
+                seen.add(s.lower())
+                out.append(s)
     return out[:15]
 
 
@@ -115,15 +120,56 @@ def wiki_interest(term: str, http_get=None) -> dict | None:
         return None
 
 
+def youtube(term: str, country: str = "NG", http_get=None) -> list[dict] | None:
+    """Top recent YouTube videos for the term (needs the free YOUTUBE_API_KEY). None = not set up."""
+    from .config import env
+    key = env("YOUTUBE_API_KEY")
+    if not key:
+        return None
+    since = (_now() - timedelta(days=180)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    r = _get(http_get, "https://www.googleapis.com/youtube/v3/search",
+             params={"part": "snippet", "q": term, "type": "video", "maxResults": 12, "order": "relevance",
+                     "publishedAfter": since, "regionCode": (country or "NG")[:2], "key": key})
+    if getattr(r, "status_code", 200) != 200:
+        return []
+    items = json.loads(r.content).get("items", [])
+    ids = [i["id"]["videoId"] for i in items if i.get("id", {}).get("videoId")]
+    stats = {}
+    if ids:
+        r2 = _get(http_get, "https://www.googleapis.com/youtube/v3/videos",
+                  params={"part": "statistics", "id": ",".join(ids), "key": key})
+        if getattr(r2, "status_code", 200) == 200:
+            stats = {v["id"]: v.get("statistics", {}) for v in json.loads(r2.content).get("items", [])}
+    out = []
+    for i in items:
+        vid = i.get("id", {}).get("videoId")
+        if not vid:
+            continue
+        sn, st = i["snippet"], stats.get(vid, {})
+        out.append({"title": sn.get("title", ""), "channel": sn.get("channelTitle", ""),
+                    "published": sn.get("publishedAt", ""), "url": f"https://www.youtube.com/watch?v={vid}",
+                    "views": int(st["viewCount"]) if st.get("viewCount", "").isdigit() else None,
+                    "comments": int(st["commentCount"]) if st.get("commentCount", "").isdigit() else None})
+    out.sort(key=lambda v: v["views"] or 0, reverse=True)
+    return out
+
+
 # ---------- analysis ----------
 
 def _profile(term: str, country: str, http_get) -> dict:
-    p = {"name": term, "error": None, "articles": [], "wiki": None}
-    try:
-        p["articles"] = news(term, country, http_get)
-    except Exception as e:  # noqa: BLE001
-        p["error"] = f"News search failed: {e}"
-    p["wiki"] = wiki_interest(term, http_get)
+    p = {"name": term, "error": None, "articles": [], "wiki": None, "youtube": None}
+    with ThreadPoolExecutor(max_workers=3) as ex:   # each source is a different website: ask all at once
+        f_news, f_wiki = ex.submit(news, term, country, http_get), ex.submit(wiki_interest, term, http_get)
+        f_yt = ex.submit(youtube, term, country, http_get)
+        try:
+            p["articles"] = f_news.result()
+        except Exception as e:  # noqa: BLE001
+            p["error"] = f"News search failed: {e}"
+        p["wiki"] = f_wiki.result()
+        try:
+            p["youtube"] = f_yt.result()
+        except Exception:  # noqa: BLE001
+            p["youtube"] = []
     arts = p["articles"]
     p["n"] = len(arts)
     p["n7"] = sum(1 for a in arts if a["age"] is not None and a["age"] <= 7)
@@ -161,6 +207,18 @@ def _advice(main: dict, comps: list[dict], sugg: list[str]) -> list[dict]:
                      "action": f"Don't copy them — answer them. Post your take on '{leader['themes'][0]}' "
                                f"if it fits your brand, and give people a reason to compare you."
                                if leader["themes"] else "Study their last 5 stories and plan a response campaign."})
+    yt = [(p, sum(v["views"] or 0 for v in (p.get("youtube") or []))) for p in allp]
+    yt = [x for x in yt if x[1]]
+    if len(yt) >= 2:
+        top, views = max(yt, key=lambda x: x[1])
+        mine = dict((p["name"], v) for p, v in yt).get(main["name"], 0)
+        if top is not main:
+            best = max(top["youtube"], key=lambda v: v["views"] or 0)
+            tips.append({"title": f"{top['name']} wins on YouTube",
+                         "why": f"Their top recent videos total {views:,} views vs {mine:,} for {main['name']}. "
+                                f"Biggest: “{best['title'][:90]}”.",
+                         "action": "Study the title and thumbnail pattern of their top 3 videos, then do the "
+                                   "opposite angle on the same topic — same demand, your own voice."})
     if main["n"] and main["neg_pct"] >= 25:
         heads = "; ".join(a["title"][:80] for a in main["negative"][:2])
         tips.append({"title": "Deal with the negative talk first",
@@ -222,10 +280,18 @@ def run(query: str, competitors: list[str] | None = None, country: str = "NG", h
         profiles = {t: f.result() for t, f in prof_f.items()}
         sugg = sugg_f.result()
     main, others = profiles[query], [profiles[c] for c in comps]
+    did_you_mean = []
+    if main["n30"] < 5:
+        ql = query.lower()
+        if main["wiki"] and main["wiki"]["title"].lower() != ql:
+            did_you_mean.append(main["wiki"]["title"])
+        did_you_mean += [s for s in sugg[:3] if not s.lower().startswith(ql)]
+        did_you_mean = list(dict.fromkeys(did_you_mean))[:4]
     total = sum(p["n30"] for p in profiles.values())
     for p in profiles.values():
         p["share"] = round(p["n30"] / total * 100) if total else 0
     return {"query": query, "country": country, "main": main, "competitors": others,
             "all": [main] + others, "suggestions": sugg, "advice": _advice(main, others, sugg),
-            "ideas": viral_ideas(main, others, sugg),
+            "ideas": viral_ideas(main, others, sugg), "did_you_mean": did_you_mean,
+            "youtube_on": main.get("youtube") is not None,
             "when": _now().strftime("%d %b %Y, %H:%M UTC")}

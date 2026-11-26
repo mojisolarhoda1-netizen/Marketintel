@@ -86,3 +86,11 @@ When Claude improves the app, it pushes the new code to your GitHub repository a
 | "database unreachable" | Check `TURSO_DATABASE_URL` starts with `libsql://` and has no spaces |
 | A page is slow | Set the Vercel function region next to your Turso region (Step 3.6) |
 | Build failed | Send Claude the last 20 lines of the build log (Deployments → the failed one → Building) |
+
+## Optional free keys (make Research much stronger)
+Add these the same way as the others (Settings → Environments → Production → Environment Variables), then Redeploy.
+
+| Key | What it unlocks | Where to get it (free) |
+|---|---|---|
+| `GROQ_API_KEY` | AI strategy brief: why the leader is ahead, gaps, 2-week content plan | console.groq.com → sign in with Google → API Keys → Create API Key |
+| `YOUTUBE_API_KEY` | Top recent YouTube videos and views for each brand | console.cloud.google.com → new project → APIs & Services → Library → "YouTube Data API v3" → Enable → Credentials → Create credentials → API key |
